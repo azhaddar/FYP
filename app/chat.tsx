@@ -2,13 +2,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
-  FlatList,
+  FlatList, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../lib/supabaseClient';
-import { C, MAX_W, SHADOW } from '../constants/theme';
+import { C, EMOTION_COLORS, MAX_W, SHADOW } from '../constants/theme';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { MentionPicker, PickerAttachment } from '../components/MentionPicker';
+import { EmotionIcon } from '../components/EmotionIcon';
 
 interface Message {
   id: string;
@@ -17,11 +19,14 @@ interface Message {
   content: string;
   created_at: string;
   read_at: string | null;
+  attachment?: PickerAttachment | null;
 }
 
 type ListItem =
   | { type: 'date'; label: string; key: string }
   | { type: 'msg'; msg: Message; key: string };
+
+const EMOTIONS = ['happy', 'sad', 'angry', 'anxious'] as const;
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
@@ -38,6 +43,120 @@ function formatDateLabel(iso: string) {
   return d.toLocaleDateString('en-MY', { weekday: 'long', day: 'numeric', month: 'short' });
 }
 
+function normalizeScores(raw: Record<string, number> | null | undefined): Record<string, number> | null {
+  if (!raw) return null;
+  const vals = EMOTIONS.map(e => raw[e] ?? 0);
+  const sum = vals.reduce((a, b) => a + b, 0);
+  if (sum === 0) return null;
+  const max = Math.max(...vals);
+  const norm = (v: number) => max <= 1 ? Math.round(v * 100) : Math.round(v);
+  return { happy: norm(raw.happy ?? 0), sad: norm(raw.sad ?? 0), angry: norm(raw.angry ?? 0), anxious: norm(raw.anxious ?? 0) };
+}
+
+// ── Attachment card rendered inside a bubble ─────────────────────────────────
+function AttachmentCard({ att, isMine }: { att: PickerAttachment; isMine: boolean }) {
+  const cardBg = isMine ? 'rgba(255,255,255,0.18)' : '#F3EEFF';
+  const labelColor = isMine ? 'rgba(255,255,255,0.85)' : C.primary;
+  const textColor = isMine ? C.white : C.text;
+  const subColor = isMine ? 'rgba(255,255,255,0.7)' : C.textSub;
+
+  const typeLabels = { drawing: 'Drawing', result: 'Result', graph: 'Progress' };
+  const typeIcons: Record<string, string> = { drawing: 'pencil', result: 'bar-chart', graph: 'trending-up' };
+
+  const scores = normalizeScores(att.scores);
+
+  return (
+    <View style={[attStyles.card, { backgroundColor: cardBg }]}>
+      {/* Type badge */}
+      <View style={attStyles.typeBadge}>
+        <Ionicons name={typeIcons[att.type] as any} size={10} color={labelColor} />
+        <Text style={[attStyles.typeLabel, { color: labelColor }]}>{typeLabels[att.type]}</Text>
+      </View>
+
+      {/* Drawing: show image */}
+      {att.type === 'drawing' && att.imageUrl ? (
+        <Image source={{ uri: att.imageUrl }} style={attStyles.image} resizeMode="cover" />
+      ) : null}
+
+      {/* Result: show mini score bars */}
+      {att.type === 'result' && scores ? (
+        <View style={attStyles.scoresWrap}>
+          {EMOTIONS.map(e => (
+            <View key={e} style={attStyles.scoreRow}>
+              <Text style={[attStyles.scoreEmoLabel, { color: subColor }]}>
+                {e.charAt(0).toUpperCase()}
+              </Text>
+              <View style={attStyles.scoreTrack}>
+                <View style={[
+                  attStyles.scoreFill,
+                  { width: `${scores[e]}%`, backgroundColor: EMOTION_COLORS[e].text },
+                  e === att.emotion && { opacity: 1 },
+                ]} />
+              </View>
+              <Text style={[attStyles.scorePct, { color: subColor }]}>{scores[e]}%</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {/* Graph: emotion dot timeline */}
+      {att.type === 'graph' && att.timeline ? (
+        <View style={attStyles.dotsWrap}>
+          {att.timeline.map((t, i) => (
+            <View key={i} style={[attStyles.dot, { backgroundColor: EMOTION_COLORS[t.emotion]?.text ?? C.borderMed }]} />
+          ))}
+        </View>
+      ) : null}
+
+      {/* Emotion + patient info */}
+      <View style={attStyles.infoRow}>
+        {att.emotion ? (
+          <>
+            <EmotionIcon emotion={att.emotion} size={15} />
+            <Text style={[attStyles.infoEmotion, { color: textColor }]}>
+              {att.emotion.charAt(0).toUpperCase() + att.emotion.slice(1)}
+            </Text>
+            <Text style={[attStyles.infoDot, { color: subColor }]}>·</Text>
+          </>
+        ) : null}
+        <Text style={[attStyles.infoPatient, { color: textColor }]}>{att.patientName}</Text>
+      </View>
+
+      {att.type !== 'graph' ? (
+        <Text style={[attStyles.infoSub, { color: subColor }]}>Session {att.sessionNum}</Text>
+      ) : (
+        <Text style={[attStyles.infoSub, { color: subColor }]}>{att.sessionNum} sessions total</Text>
+      )}
+    </View>
+  );
+}
+
+// ── Pending attachment preview above input bar ────────────────────────────────
+function AttachmentPreview({ att, onRemove }: { att: PickerAttachment; onRemove: () => void }) {
+  return (
+    <View style={previewStyles.wrap}>
+      {att.type === 'drawing' && att.imageUrl ? (
+        <Image source={{ uri: att.imageUrl }} style={previewStyles.thumb} resizeMode="cover" />
+      ) : (
+        <View style={previewStyles.iconBox}>
+          <Ionicons
+            name={att.type === 'result' ? 'bar-chart' : 'trending-up'}
+            size={18} color={C.primary}
+          />
+        </View>
+      )}
+      <View style={{ flex: 1 }}>
+        <Text style={previewStyles.title} numberOfLines={1}>{att.title}</Text>
+        <Text style={previewStyles.sub}>{att.patientName} · Session {att.sessionNum}</Text>
+      </View>
+      <TouchableOpacity onPress={onRemove} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <Ionicons name="close-circle" size={20} color={C.textMuted} />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ── Main screen ───────────────────────────────────────────────────────────────
 export default function ChatScreen() {
   const router = useRouter();
   const { otherId, otherName } = useLocalSearchParams<{ otherId: string; otherName: string }>();
@@ -47,6 +166,8 @@ export default function ChatScreen() {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<PickerAttachment | null>(null);
 
   const flatRef = useRef<FlatList>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -70,7 +191,7 @@ export default function ChatScreen() {
     setLoading(true);
     const { data } = await supabase
       .from('messages')
-      .select('id, sender_id, receiver_id, content, created_at, read_at')
+      .select('id, sender_id, receiver_id, content, created_at, read_at, attachment')
       .or(`and(sender_id.eq.${myId},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${myId})`)
       .order('created_at', { ascending: true });
     setMessages(data ?? []);
@@ -103,12 +224,19 @@ export default function ChatScreen() {
 
   async function sendMessage() {
     const content = text.trim();
-    if (!content || !myId || !otherId || sending) return;
+    if ((!content && !pendingAttachment) || !myId || !otherId || sending) return;
     setSending(true);
     setText('');
+    const att = pendingAttachment;
+    setPendingAttachment(null);
     const { data, error } = await supabase
       .from('messages')
-      .insert({ sender_id: myId, receiver_id: otherId, content })
+      .insert({
+        sender_id: myId,
+        receiver_id: otherId,
+        content: content || '',
+        attachment: att ?? undefined,
+      })
       .select()
       .single();
     if (!error && data) setMessages(prev => [...prev, data as Message]);
@@ -126,6 +254,8 @@ export default function ChatScreen() {
     }
     listItems.push({ type: 'msg', msg, key: msg.id });
   }
+
+  const canSend = (text.trim().length > 0 || !!pendingAttachment) && !sending;
 
   return (
     <KeyboardAvoidingView
@@ -189,9 +319,14 @@ export default function ChatScreen() {
             return (
               <View style={[styles.bubbleWrap, isMine ? styles.bubbleWrapMine : styles.bubbleWrapTheirs]}>
                 <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
-                  <Text style={[styles.bubbleText, isMine && styles.bubbleTextMine]}>
-                    {msg.content}
-                  </Text>
+                  {msg.attachment ? (
+                    <AttachmentCard att={msg.attachment} isMine={isMine} />
+                  ) : null}
+                  {msg.content ? (
+                    <Text style={[styles.bubbleText, isMine && styles.bubbleTextMine, msg.attachment && { marginTop: 6 }]}>
+                      {msg.content}
+                    </Text>
+                  ) : null}
                   <Text style={[styles.bubbleTime, isMine && styles.bubbleTimeMine]}>
                     {formatTime(msg.created_at)}{isMine ? (msg.read_at ? '  ✓✓' : '  ✓') : ''}
                   </Text>
@@ -202,8 +337,21 @@ export default function ChatScreen() {
         />
       )}
 
+      {/* Attachment preview */}
+      {pendingAttachment && (
+        <AttachmentPreview att={pendingAttachment} onRemove={() => setPendingAttachment(null)} />
+      )}
+
       {/* Input bar */}
       <View style={styles.inputBar}>
+        {/* Mention/@ button */}
+        <TouchableOpacity
+          style={styles.mentionBtn}
+          onPress={() => setShowPicker(true)}
+        >
+          <Ionicons name="at" size={20} color={C.primary} />
+        </TouchableOpacity>
+
         <TextInput
           style={styles.input}
           value={text}
@@ -215,9 +363,9 @@ export default function ChatScreen() {
           returnKeyType="default"
         />
         <TouchableOpacity
-          style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
+          style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
           onPress={sendMessage}
-          disabled={!text.trim() || sending}
+          disabled={!canSend}
         >
           {sending
             ? <ActivityIndicator size="small" color={C.white} />
@@ -225,10 +373,20 @@ export default function ChatScreen() {
           }
         </TouchableOpacity>
       </View>
+
+      {/* Mention picker */}
+      <MentionPicker
+        visible={showPicker}
+        onClose={() => setShowPicker(false)}
+        myId={myId}
+        otherId={otherId ?? ''}
+        onSelect={att => setPendingAttachment(att)}
+      />
     </KeyboardAvoidingView>
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F5F0FB' },
 
@@ -263,43 +421,84 @@ const styles = StyleSheet.create({
     backgroundColor: '#E4DAF5', paddingHorizontal: 14, paddingVertical: 5, borderRadius: 12,
   },
 
-  bubbleWrap: { marginBottom: 4, flexDirection: 'row' },
+  bubbleWrap: { marginBottom: 6, flexDirection: 'row' },
   bubbleWrapMine: { justifyContent: 'flex-end' },
   bubbleWrapTheirs: { justifyContent: 'flex-start' },
 
   bubble: {
-    maxWidth: '78%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 9,
+    maxWidth: '82%', borderRadius: 18, paddingHorizontal: 12, paddingVertical: 9,
     ...SHADOW.sm,
   },
-  bubbleMine: {
-    backgroundColor: C.primary,
-    borderBottomRightRadius: 4,
-  },
-  bubbleTheirs: {
-    backgroundColor: C.white,
-    borderBottomLeftRadius: 4,
-  },
+  bubbleMine: { backgroundColor: C.primary, borderBottomRightRadius: 4 },
+  bubbleTheirs: { backgroundColor: C.white, borderBottomLeftRadius: 4 },
   bubbleText: { fontSize: 14, color: C.text, lineHeight: 20 },
   bubbleTextMine: { color: C.white },
-  bubbleTime: {
-    fontSize: 10, color: C.textMuted, marginTop: 4, textAlign: 'right',
-  },
+  bubbleTime: { fontSize: 10, color: C.textMuted, marginTop: 4, textAlign: 'right' },
   bubbleTimeMine: { color: 'rgba(255,255,255,0.65)' },
 
   inputBar: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 10,
-    paddingHorizontal: 16, paddingTop: 10, paddingBottom: 30,
+    flexDirection: 'row', alignItems: 'flex-end', gap: 8,
+    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 30,
     backgroundColor: C.white, borderTopWidth: 1, borderTopColor: C.border,
+  },
+  mentionBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: C.primaryLight, justifyContent: 'center', alignItems: 'center',
+    flexShrink: 0, alignSelf: 'flex-end', marginBottom: 2,
   },
   input: {
     flex: 1, borderWidth: 1.5, borderColor: C.border, borderRadius: 22,
-    paddingHorizontal: 16, paddingVertical: Platform.OS === 'ios' ? 10 : 8,
+    paddingHorizontal: 14, paddingVertical: Platform.OS === 'ios' ? 10 : 8,
     fontSize: 14, color: C.text, backgroundColor: C.base,
     maxHeight: 100, minHeight: 44,
   },
   sendBtn: {
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: C.primary, justifyContent: 'center', alignItems: 'center',
+    flexShrink: 0,
   },
   sendBtnDisabled: { backgroundColor: C.borderMed },
+});
+
+const attStyles = StyleSheet.create({
+  card: {
+    borderRadius: 12, padding: 10, marginBottom: 2,
+  },
+  typeBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8,
+  },
+  typeLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
+
+  image: { width: '100%', height: 130, borderRadius: 8, marginBottom: 8 },
+
+  scoresWrap: { gap: 5, marginBottom: 8 },
+  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  scoreEmoLabel: { width: 12, fontSize: 10, fontWeight: '700' },
+  scoreTrack: { flex: 1, height: 7, borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.08)', overflow: 'hidden' },
+  scoreFill: { height: '100%', borderRadius: 4, opacity: 0.6 },
+  scorePct: { width: 30, fontSize: 10, textAlign: 'right' },
+
+  dotsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 8 },
+  dot: { width: 10, height: 10, borderRadius: 5 },
+
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  infoEmotion: { fontSize: 13, fontWeight: '700', textTransform: 'capitalize' },
+  infoDot: { fontSize: 13 },
+  infoPatient: { fontSize: 13, fontWeight: '600' },
+  infoSub: { fontSize: 11, marginTop: 2 },
+});
+
+const previewStyles = StyleSheet.create({
+  wrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#F3EEFF', borderTopWidth: 1, borderTopColor: '#DDD6F3',
+    paddingHorizontal: 14, paddingVertical: 10,
+  },
+  thumb: { width: 40, height: 40, borderRadius: 8, flexShrink: 0 },
+  iconBox: {
+    width: 40, height: 40, borderRadius: 8,
+    backgroundColor: C.primaryLight, justifyContent: 'center', alignItems: 'center', flexShrink: 0,
+  },
+  title: { fontSize: 13, fontWeight: '700', color: C.text },
+  sub: { fontSize: 11, color: C.textSub, marginTop: 1 },
 });
