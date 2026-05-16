@@ -114,6 +114,7 @@ export default function UploadScreen() {
           image_url: imageUrl,
           scores: scores ?? null,
           therapist_message: analyzeResult.data?.therapistMessage ?? null,
+          htp_features: analyzeResult.data?.htpFeatures ?? null,
           pre_mood: preMood || null,
         });
       }

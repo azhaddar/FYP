@@ -10,7 +10,6 @@ import { EmotionIcon } from './EmotionIcon';
 import { useApp } from '../contexts/AppContext';
 
 type PromptType = 'self' | 'house';
-type Method = 'draw' | 'upload';
 type Step = 'category' | 'mood';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -47,13 +46,11 @@ export function ChildNav() {
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState<Step>('category');
   const [prompt, setPrompt] = useState<PromptType | null>(null);
-  const [method, setMethod] = useState<Method | null>(null);
   const [preMood, setPreMood] = useState<string | null>(null);
 
   function openDrawModal() {
     setStep('category');
     setPrompt(null);
-    setMethod(null);
     setPreMood(null);
     setVisible(true);
   }
@@ -67,13 +64,12 @@ export function ChildNav() {
   }
 
   function goToMood() {
-    if (!prompt || !method) return;
+    if (!prompt) return;
     setStep('mood');
   }
 
   function startDrawing() {
-    const path = method === 'draw' ? '/child/draw' : '/child/upload';
-    router.push({ pathname: path as any, params: { promptType: prompt!, preMood: preMood ?? '' } });
+    router.push({ pathname: '/child/upload' as any, params: { promptType: prompt!, preMood: preMood ?? '' } });
     setVisible(false);
   }
 
@@ -118,7 +114,7 @@ export function ChildNav() {
               /* ── Step 1: Category + Method ─────────────────── */
               <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
                 <Text style={modal.title}>What will you draw?</Text>
-                <Text style={modal.subtitle}>Pick a topic and how you'd like to draw</Text>
+                <Text style={modal.subtitle}>Pick a topic for your drawing</Text>
 
                 {/* Category cards */}
                 <View style={modal.promptList}>
@@ -150,37 +146,11 @@ export function ChildNav() {
                   })}
                 </View>
 
-                {/* Method */}
-                <Text style={modal.sectionLabel}>How do you want to draw?</Text>
-                <View style={modal.methodRow}>
-                  <TouchableOpacity
-                    style={[modal.methodBtn, modal.methodPrimary, method === 'draw' && modal.methodBtnActive, !prompt && { opacity: 0.4 }]}
-                    onPress={() => prompt && setMethod('draw')}
-                    activeOpacity={0.85}
-                    disabled={!prompt}
-                  >
-                    <Ionicons name="brush" size={22} color={method === 'draw' ? C.white : C.primary} />
-                    <Text style={[modal.methodBtnText, { color: method === 'draw' ? C.white : C.primary }]}>Draw on Screen</Text>
-                    <Text style={[modal.methodBtnSub, { color: method === 'draw' ? 'rgba(255,255,255,0.8)' : C.textSub }]}>Use your finger</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[modal.methodBtn, modal.methodSecondary, method === 'upload' && modal.methodUploadActive, !prompt && { opacity: 0.4 }]}
-                    onPress={() => prompt && setMethod('upload')}
-                    activeOpacity={0.85}
-                    disabled={!prompt}
-                  >
-                    <Ionicons name="camera" size={22} color={method === 'upload' ? C.white : C.primary} />
-                    <Text style={[modal.methodBtnText, { color: method === 'upload' ? C.white : C.primary }]}>Upload Photo</Text>
-                    <Text style={[modal.methodBtnSub, { color: method === 'upload' ? 'rgba(255,255,255,0.8)' : C.textSub }]}>Scan paper drawing</Text>
-                  </TouchableOpacity>
-                </View>
-
                 {/* Next */}
                 <TouchableOpacity
-                  style={[modal.nextBtn, (!prompt || !method) && { opacity: 0.4 }]}
+                  style={[modal.nextBtn, !prompt && { opacity: 0.4 }]}
                   onPress={goToMood}
-                  disabled={!prompt || !method}
+                  disabled={!prompt}
                   activeOpacity={0.85}
                 >
                   <Text style={modal.nextBtnText}>Next →  How are you feeling?</Text>
@@ -234,8 +204,8 @@ export function ChildNav() {
                   disabled={!preMood}
                   activeOpacity={0.85}
                 >
-                  <Ionicons name="brush" size={18} color={C.white} />
-                  <Text style={mood.goBtnText}>Let's Draw!</Text>
+                  <Ionicons name="camera-outline" size={18} color={C.white} />
+                  <Text style={mood.goBtnText}>Let's Go!</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={startDrawing} style={mood.skipBtn}>
@@ -293,19 +263,6 @@ const modal = StyleSheet.create({
   promptTitle: { fontSize: 15, fontWeight: '800', color: C.text },
   promptDesc: { fontSize: 12, color: C.textSub, lineHeight: 17 },
   check: { width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
-
-  sectionLabel: { fontSize: 13, fontWeight: '700', color: C.text, marginBottom: 10 },
-  methodRow: { flexDirection: 'row', gap: 10, marginBottom: 18 },
-  methodBtn: {
-    flex: 1, borderRadius: 18, paddingVertical: 18, alignItems: 'center', gap: 4,
-    borderWidth: 2,
-  },
-  methodPrimary: { backgroundColor: C.white, borderColor: C.primary },
-  methodSecondary: { backgroundColor: C.white, borderColor: '#7c3aed' },
-  methodBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
-  methodUploadActive: { backgroundColor: '#7c3aed', borderColor: '#7c3aed' },
-  methodBtnText: { fontSize: 13, fontWeight: '800' },
-  methodBtnSub: { fontSize: 11 },
 
   nextBtn: {
     backgroundColor: C.primary, borderRadius: 18, paddingVertical: 16,

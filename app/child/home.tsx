@@ -61,7 +61,7 @@ export default function ChildHome() {
   const [streak, setStreak] = useState(0);
   const [recentEmotion, setRecentEmotion] = useState<string | null>(null);
   const [selectedPrompt, setSelectedPrompt] = useState<PromptType | null>(null);
-  const [pendingMethod, setPendingMethod] = useState<'draw' | 'upload' | null>(null);
+  const [pendingMethod, setPendingMethod] = useState(false);
   const [preMood, setPreMood] = useState<string | null>(null);
 
   useEffect(() => {
@@ -98,20 +98,19 @@ export default function ChildHome() {
     );
   }
 
-  function openMoodCheck(method: 'draw' | 'upload') {
+  function openMoodCheck() {
     if (!selectedPrompt) {
       Alert.alert('Pick a drawing topic', 'Please choose what you want to draw first!');
       return;
     }
     setPreMood(null);
-    setPendingMethod(method);
+    setPendingMethod(true);
   }
 
   function confirmMoodAndNavigate() {
-    if (!pendingMethod || !selectedPrompt) return;
-    const path = pendingMethod === 'draw' ? '/child/draw' : '/child/upload';
-    router.push({ pathname: path, params: { promptType: selectedPrompt, preMood: preMood ?? '' } });
-    setPendingMethod(null);
+    if (!selectedPrompt) return;
+    router.push({ pathname: '/child/upload', params: { promptType: selectedPrompt, preMood: preMood ?? '' } });
+    setPendingMethod(false);
   }
 
   if (!activeChild) return null;
@@ -204,33 +203,22 @@ export default function ChildHome() {
             <Text style={styles.stepBubbleText}>2</Text>
           </View>
           <Text style={[styles.stepLabel, !selectedPrompt && { color: C.textMuted }]}>
-            How do you want to draw?
+            Upload your drawing
           </Text>
         </View>
 
-        <View style={styles.methodRow}>
-          <TouchableOpacity
-            style={[styles.methodCard, styles.methodDraw, !selectedPrompt && styles.methodDisabled]}
-            onPress={() => openMoodCheck('draw')}
-            activeOpacity={0.85}
-            disabled={!selectedPrompt}
-          >
-            <Ionicons name="brush" size={30} color={C.white} />
-            <Text style={styles.methodTitle}>Draw on Screen</Text>
-            <Text style={styles.methodSub}>Use your finger</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.methodCard, styles.methodUpload, !selectedPrompt && styles.methodDisabled]}
-            onPress={() => openMoodCheck('upload')}
-            activeOpacity={0.85}
-            disabled={!selectedPrompt}
-          >
-            <Ionicons name="camera-outline" size={30} color={selectedPrompt ? '#7c3aed' : C.textMuted} />
-            <Text style={[styles.methodTitle, { color: selectedPrompt ? '#7c3aed' : C.textMuted }]}>Upload Photo</Text>
-            <Text style={[styles.methodSub, { color: selectedPrompt ? '#9d6fd4' : C.textMuted }]}>Scan a paper drawing</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[styles.uploadBtn, !selectedPrompt && styles.uploadBtnDisabled]}
+          onPress={openMoodCheck}
+          activeOpacity={0.85}
+          disabled={!selectedPrompt}
+        >
+          <Ionicons name="camera-outline" size={28} color={selectedPrompt ? C.white : C.textMuted} />
+          <View>
+            <Text style={[styles.uploadBtnTitle, !selectedPrompt && { color: C.textMuted }]}>Upload Photo</Text>
+            <Text style={[styles.uploadBtnSub, !selectedPrompt && { color: C.textMuted }]}>Take a photo or choose from gallery</Text>
+          </View>
+        </TouchableOpacity>
 
         {/* Journal link */}
         <TouchableOpacity style={styles.journalLink} onPress={() => router.push('/child/journal')}>
@@ -244,8 +232,8 @@ export default function ChildHome() {
       <ChildNav />
 
       {/* Pre-draw mood modal */}
-      <Modal visible={pendingMethod !== null} transparent animationType="slide" onRequestClose={() => setPendingMethod(null)}>
-        <Pressable style={moodStyles.backdrop} onPress={() => setPendingMethod(null)}>
+      <Modal visible={pendingMethod} transparent animationType="slide" onRequestClose={() => setPendingMethod(false)}>
+        <Pressable style={moodStyles.backdrop} onPress={() => setPendingMethod(false)}>
           <Pressable style={moodStyles.sheet} onPress={() => {}}>
             <View style={moodStyles.handle} />
             <View style={moodStyles.iconWrap}>
@@ -288,8 +276,8 @@ export default function ChildHome() {
               disabled={!preMood}
               activeOpacity={0.85}
             >
-              <Ionicons name="brush" size={20} color={C.white} />
-              <Text style={moodStyles.goBtnText}>Let's Draw!</Text>
+              <Ionicons name="camera-outline" size={20} color={C.white} />
+              <Text style={moodStyles.goBtnText}>Let's Go!</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={confirmMoodAndNavigate} style={moodStyles.skipBtn}>
               <Text style={moodStyles.skipText}>Skip for now</Text>
@@ -376,19 +364,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center', flexShrink: 0,
   },
 
-  // Method cards
-  methodRow: { flexDirection: 'row', gap: 12, marginBottom: 18 },
-  methodCard: {
-    flex: 1, borderRadius: 22, paddingVertical: 22, paddingHorizontal: 10,
-    alignItems: 'center', gap: 6, borderWidth: 2,
+  // Upload button
+  uploadBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    backgroundColor: C.primary, borderRadius: 22,
+    paddingVertical: 20, paddingHorizontal: 24,
+    marginBottom: 18,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
   },
-  methodDraw: { backgroundColor: C.primary, borderColor: C.primary },
-  methodUpload: { backgroundColor: C.white, borderColor: '#C4B5FD' },
-  methodDisabled: { opacity: 0.38 },
-  methodTitle: { fontSize: 14, fontWeight: '900', color: C.white, textAlign: 'center' },
-  methodSub: { fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: '500', textAlign: 'center' },
+  uploadBtnDisabled: { backgroundColor: '#e5e7eb' },
+  uploadBtnTitle: { fontSize: 16, fontWeight: '900', color: C.white },
+  uploadBtnSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)', fontWeight: '500', marginTop: 2 },
 
   // Journal link
   journalLink: {
