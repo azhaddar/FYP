@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Modal, Pressable, ScrollView,
+  Modal, Pressable, ScrollView, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
@@ -41,7 +41,7 @@ const PROMPTS: Record<PromptType, { icon: IoniconName; title: string; desc: stri
 export function ChildNav() {
   const router = useRouter();
   const pathname = usePathname();
-  const { unreadBadgeCount } = useApp();
+  const { unreadBadgeCount, activeChild } = useApp();
 
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState<Step>('category');
@@ -49,6 +49,22 @@ export function ChildNav() {
   const [preMood, setPreMood] = useState<string | null>(null);
 
   function openDrawModal() {
+    if (activeChild?.status === 'Complete') {
+      Alert.alert(
+        '🎉 Therapy Complete!',
+        "Your therapy journey is complete. Great job! You can still look back at your drawings in the Journal.",
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    if (activeChild?.status === 'Inactive') {
+      Alert.alert(
+        'Sessions Paused',
+        'Your drawing sessions are currently paused. Please check with your therapist.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
     setStep('category');
     setPrompt(null);
     setPreMood(null);

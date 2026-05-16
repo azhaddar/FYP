@@ -63,6 +63,9 @@ export default function ChildHome() {
   const [selectedPrompt, setSelectedPrompt] = useState<PromptType | null>(null);
   const [pendingMethod, setPendingMethod] = useState(false);
   const [preMood, setPreMood] = useState<string | null>(null);
+  const [emotionCounts, setEmotionCounts] = useState<Record<string, number>>({});
+  const [weekActivity, setWeekActivity] = useState<{ date: string; emotion: string | null }[]>([]);
+  const [totalSessions, setTotalSessions] = useState(0);
 
   useEffect(() => {
     if (!activeChild) { router.replace('/dashboard'); return; }
@@ -79,6 +82,22 @@ export default function ChildHome() {
     if (data) {
       setStreak(computeStreak(data));
       if (data[0]) setRecentEmotion(data[0].emotion);
+      setTotalSessions(data.length);
+
+      const counts: Record<string, number> = {};
+      data.forEach(s => { if (s.emotion) counts[s.emotion] = (counts[s.emotion] ?? 0) + 1; });
+      setEmotionCounts(counts);
+
+      const last7 = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i));
+        return d.toISOString().slice(0, 10);
+      });
+      setWeekActivity(last7.map(date => {
+        const s = data.find(sk => sk.created_at.slice(0, 10) === date);
+        return { date, emotion: s?.emotion ?? null };
+      }));
+
       // Check for new unread badges to show dot on nav
       const earnedIds = computeEarnedBadgeIds(data);
       const seenIds = await getSeenBadgeIds(activeChild.id);
@@ -155,70 +174,193 @@ export default function ChildHome() {
           </View>
         </View>
 
-        {/* Step 1 */}
-        <View style={styles.stepHeader}>
-          <View style={styles.stepBubble}>
-            <Text style={styles.stepBubbleText}>1</Text>
-          </View>
-          <Text style={styles.stepLabel}>What will you draw?</Text>
-        </View>
-
-        <View style={styles.promptCol}>
-          {(Object.keys(DRAWING_PROMPTS) as PromptType[]).map(type => {
-            const p = DRAWING_PROMPTS[type];
-            const isSelected = selectedPrompt === type;
-            return (
-              <TouchableOpacity
-                key={type}
-                style={[styles.promptCard, isSelected && { borderColor: p.color, borderWidth: 3, backgroundColor: p.lightColor }]}
-                onPress={() => setSelectedPrompt(type)}
-                activeOpacity={0.82}
-              >
-                <View style={[styles.promptIconWrap, { backgroundColor: isSelected ? p.color : p.lightColor }]}>
-                  <Ionicons name={p.icon as any} size={26} color={isSelected ? '#fff' : p.color} />
+        {/* ── Charts ──────────────────────────────────────── */}
+        {totalSessions > 0 && (
+          <>
+            {/* My Feelings bar chart */}
+            <View style={chartStyles.card}>
+              <View style={chartStyles.cardHeader}>
+                <View style={[chartStyles.cardIconPill, { backgroundColor: '#FFE4F0' }]}>
+                  <Ionicons name="heart" size={18} color={C.primary} />
                 </View>
-                <View style={styles.promptText}>
-                  <Text style={[styles.promptCardTitle, { color: isSelected ? p.color : C.text }]}>{p.title}</Text>
-                  <Text style={styles.promptCardDesc}>{p.desc}</Text>
-                  {isSelected && (
-                    <View style={[styles.tipRow, { backgroundColor: p.color + '18' }]}>
-                      <Text style={[styles.tipText, { color: p.color }]}>💡 {p.tip}</Text>
-                    </View>
-                  )}
+                <View style={{ flex: 1 }}>
+                  <Text style={chartStyles.cardTitle}>My Feelings</Text>
+                  <Text style={chartStyles.cardSub}>How I've felt across all my drawings</Text>
                 </View>
-                {isSelected
-                  ? <View style={[styles.checkCircle, { backgroundColor: p.color }]}>
-                      <Ionicons name="checkmark" size={15} color={C.white} />
+              </View>
+              {(['happy', 'sad', 'angry', 'anxious'] as const).map(e => {
+                const count = emotionCounts[e] ?? 0;
+                const pct = totalSessions > 0 ? count / totalSessions : 0;
+                const ec = EMOTION_COLORS[e];
+                return (
+                  <View key={e} style={chartStyles.barRow}>
+                    <EmotionIcon emotion={e} size={22} />
+                    <Text style={chartStyles.barLabel}>{e.charAt(0).toUpperCase() + e.slice(1)}</Text>
+                    <View style={chartStyles.barTrack}>
+                      {pct > 0 && <View style={[chartStyles.barFill, { flex: pct, backgroundColor: ec.text }]} />}
+                      <View style={{ flex: Math.max(1 - pct, 0) }} />
                     </View>
-                  : <Ionicons name="chevron-forward" size={20} color={C.borderMed} />
-                }
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                    <Text style={[chartStyles.barCount, pct > 0 && { color: ec.text }]}>{count}</Text>
+                  </View>
+                );
+              })}
+            </View>
 
-        {/* Step 2 */}
-        <View style={styles.stepHeader}>
-          <View style={[styles.stepBubble, !selectedPrompt && styles.stepBubbleOff]}>
-            <Text style={styles.stepBubbleText}>2</Text>
-          </View>
-          <Text style={[styles.stepLabel, !selectedPrompt && { color: C.textMuted }]}>
-            Upload your drawing
-          </Text>
-        </View>
+            {/* This week activity dots */}
+            <View style={chartStyles.card}>
+              <View style={chartStyles.cardHeader}>
+                <View style={[chartStyles.cardIconPill, { backgroundColor: '#EDE9FE' }]}>
+                  <Ionicons name="calendar" size={18} color="#7c3aed" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={chartStyles.cardTitle}>This Week</Text>
+                  <Text style={chartStyles.cardSub}>Days I drew something this week</Text>
+                </View>
+              </View>
+              <View style={chartStyles.weekRow}>
+                {weekActivity.map((day, i) => {
+                  const ec = day.emotion ? EMOTION_COLORS[day.emotion] : null;
+                  const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                  const label = DOW[new Date(day.date + 'T12:00:00').getDay()];
+                  return (
+                    <View key={i} style={chartStyles.weekCol}>
+                      <View style={[
+                        chartStyles.weekDot,
+                        ec
+                          ? { backgroundColor: ec.card, borderColor: ec.text, borderWidth: 2 }
+                          : { backgroundColor: '#f3f4f6', borderColor: '#e5e7eb', borderWidth: 1.5 },
+                      ]}>
+                        {day.emotion
+                          ? <EmotionIcon emotion={day.emotion} size={20} />
+                          : <Ionicons name="remove" size={14} color="#d1d5db" />
+                        }
+                      </View>
+                      <Text style={chartStyles.weekDayLabel}>{label}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
 
-        <TouchableOpacity
-          style={[styles.uploadBtn, !selectedPrompt && styles.uploadBtnDisabled]}
-          onPress={openMoodCheck}
-          activeOpacity={0.85}
-          disabled={!selectedPrompt}
-        >
-          <Ionicons name="camera-outline" size={28} color={selectedPrompt ? C.white : C.textMuted} />
-          <View>
-            <Text style={[styles.uploadBtnTitle, !selectedPrompt && { color: C.textMuted }]}>Upload Photo</Text>
-            <Text style={[styles.uploadBtnSub, !selectedPrompt && { color: C.textMuted }]}>Take a photo or choose from gallery</Text>
+            {/* Total drawings milestone card */}
+            <View style={chartStyles.milestoneCard}>
+              <View style={chartStyles.milestoneIconWrap}>
+                <Ionicons
+                  name={totalSessions >= 20 ? 'trophy' : totalSessions >= 10 ? 'ribbon' : totalSessions >= 5 ? 'star' : 'brush'}
+                  size={26}
+                  color="#C2410C"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={chartStyles.milestoneTitle}>
+                  {totalSessions} drawing{totalSessions !== 1 ? 's' : ''} done!
+                </Text>
+                <Text style={chartStyles.milestoneSub}>
+                  {totalSessions >= 20
+                    ? 'Wow, you\'re a drawing superstar! 🌈'
+                    : totalSessions >= 10
+                    ? 'Amazing progress! Keep it up!'
+                    : totalSessions >= 5
+                    ? 'Great start! You\'re doing fantastic!'
+                    : 'Keep drawing, you\'re doing great!'}
+                </Text>
+              </View>
+            </View>
+          </>
+        )}
+
+        {/* Status banners */}
+        {activeChild.status === 'Complete' && (
+          <View style={styles.completeBanner}>
+            <Text style={styles.completeBannerEmoji}>🎉</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.completeBannerTitle}>Therapy Complete!</Text>
+              <Text style={styles.completeBannerSub}>
+                You've finished your therapy journey. Amazing work! Check your past drawings in the Journal.
+              </Text>
+            </View>
           </View>
-        </TouchableOpacity>
+        )}
+
+        {activeChild.status === 'Inactive' && (
+          <View style={styles.inactiveBanner}>
+            <Ionicons name="pause-circle-outline" size={24} color="#92400e" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.inactiveBannerTitle}>Sessions Paused</Text>
+              <Text style={styles.inactiveBannerSub}>Your drawing sessions are currently paused. Check with your therapist.</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Drawing flow — hidden when Complete or Inactive */}
+        {activeChild.status !== 'Complete' && activeChild.status !== 'Inactive' && (
+          <>
+            {/* Step 1 */}
+            <View style={styles.stepHeader}>
+              <View style={styles.stepBubble}>
+                <Text style={styles.stepBubbleText}>1</Text>
+              </View>
+              <Text style={styles.stepLabel}>What will you draw?</Text>
+            </View>
+
+            <View style={styles.promptCol}>
+              {(Object.keys(DRAWING_PROMPTS) as PromptType[]).map(type => {
+                const p = DRAWING_PROMPTS[type];
+                const isSelected = selectedPrompt === type;
+                return (
+                  <TouchableOpacity
+                    key={type}
+                    style={[styles.promptCard, isSelected && { borderColor: p.color, borderWidth: 3, backgroundColor: p.lightColor }]}
+                    onPress={() => setSelectedPrompt(type)}
+                    activeOpacity={0.82}
+                  >
+                    <View style={[styles.promptIconWrap, { backgroundColor: isSelected ? p.color : p.lightColor }]}>
+                      <Ionicons name={p.icon as any} size={26} color={isSelected ? '#fff' : p.color} />
+                    </View>
+                    <View style={styles.promptText}>
+                      <Text style={[styles.promptCardTitle, { color: isSelected ? p.color : C.text }]}>{p.title}</Text>
+                      <Text style={styles.promptCardDesc}>{p.desc}</Text>
+                      {isSelected && (
+                        <View style={[styles.tipRow, { backgroundColor: p.color + '18' }]}>
+                          <Text style={[styles.tipText, { color: p.color }]}>💡 {p.tip}</Text>
+                        </View>
+                      )}
+                    </View>
+                    {isSelected
+                      ? <View style={[styles.checkCircle, { backgroundColor: p.color }]}>
+                          <Ionicons name="checkmark" size={15} color={C.white} />
+                        </View>
+                      : <Ionicons name="chevron-forward" size={20} color={C.borderMed} />
+                    }
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Step 2 */}
+            <View style={styles.stepHeader}>
+              <View style={[styles.stepBubble, !selectedPrompt && styles.stepBubbleOff]}>
+                <Text style={styles.stepBubbleText}>2</Text>
+              </View>
+              <Text style={[styles.stepLabel, !selectedPrompt && { color: C.textMuted }]}>
+                Upload your drawing
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.uploadBtn, !selectedPrompt && styles.uploadBtnDisabled]}
+              onPress={openMoodCheck}
+              activeOpacity={0.85}
+              disabled={!selectedPrompt}
+            >
+              <Ionicons name="camera-outline" size={28} color={selectedPrompt ? C.white : C.textMuted} />
+              <View>
+                <Text style={[styles.uploadBtnTitle, !selectedPrompt && { color: C.textMuted }]}>Upload Photo</Text>
+                <Text style={[styles.uploadBtnSub, !selectedPrompt && { color: C.textMuted }]}>Take a photo or choose from gallery</Text>
+              </View>
+            </TouchableOpacity>
+          </>
+        )}
 
         {/* Journal link */}
         <TouchableOpacity style={styles.journalLink} onPress={() => router.push('/child/journal')}>
@@ -377,6 +519,24 @@ const styles = StyleSheet.create({
   uploadBtnTitle: { fontSize: 16, fontWeight: '900', color: C.white },
   uploadBtnSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)', fontWeight: '500', marginTop: 2 },
 
+  // Status banners
+  completeBanner: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    backgroundColor: '#f0fdf4', borderRadius: 18, padding: 16,
+    borderWidth: 2, borderColor: '#86efac', marginBottom: 20,
+  },
+  completeBannerEmoji: { fontSize: 28, lineHeight: 34 },
+  completeBannerTitle: { fontSize: 16, fontWeight: '800', color: '#166534', marginBottom: 3 },
+  completeBannerSub: { fontSize: 13, color: '#15803d', lineHeight: 18 },
+
+  inactiveBanner: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    backgroundColor: '#fffbeb', borderRadius: 18, padding: 16,
+    borderWidth: 2, borderColor: '#fcd34d', marginBottom: 20,
+  },
+  inactiveBannerTitle: { fontSize: 15, fontWeight: '800', color: '#92400e', marginBottom: 3 },
+  inactiveBannerSub: { fontSize: 13, color: '#b45309', lineHeight: 18 },
+
   // Journal link
   journalLink: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -386,6 +546,56 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
   },
   journalLinkText: { fontSize: 14, color: C.textSub, fontWeight: '600', flex: 1, textAlign: 'center' },
+});
+
+const chartStyles = StyleSheet.create({
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 22, padding: 18, marginBottom: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,
+    borderWidth: 1.5, borderColor: '#F0E6FF',
+  },
+  cardHeader: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 16,
+  },
+  cardIconPill: {
+    width: 42, height: 42, borderRadius: 14,
+    justifyContent: 'center', alignItems: 'center', flexShrink: 0,
+  },
+  cardTitle: { fontSize: 16, fontWeight: '900', color: C.text, marginBottom: 2 },
+  cardSub: { fontSize: 12, color: C.textSub, lineHeight: 17 },
+
+  barRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10,
+  },
+  barLabel: { fontSize: 12, fontWeight: '700', color: C.textSub, width: 52 },
+  barTrack: {
+    flex: 1, height: 14, borderRadius: 7,
+    backgroundColor: '#f3f4f6', flexDirection: 'row', overflow: 'hidden',
+  },
+  barFill: { borderRadius: 7, minWidth: 10 },
+  barCount: { fontSize: 13, fontWeight: '800', color: C.textMuted, width: 22, textAlign: 'right' },
+
+  weekRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  weekCol: { alignItems: 'center', gap: 6, flex: 1 },
+  weekDot: {
+    width: 40, height: 40, borderRadius: 20,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  weekDayLabel: { fontSize: 10, fontWeight: '700', color: C.textMuted },
+
+  milestoneCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: '#FFF7ED', borderRadius: 20, padding: 16,
+    borderWidth: 2, borderColor: '#FED7AA', marginBottom: 16,
+  },
+  milestoneIconWrap: {
+    width: 52, height: 52, borderRadius: 16,
+    backgroundColor: '#FFEDD5', justifyContent: 'center', alignItems: 'center', flexShrink: 0,
+  },
+  milestoneTitle: { fontSize: 16, fontWeight: '900', color: '#C2410C', marginBottom: 2 },
+  milestoneSub: { fontSize: 13, color: '#92400e', lineHeight: 18 },
 });
 
 const moodStyles = StyleSheet.create({

@@ -57,7 +57,8 @@ export default function SketchDetailScreen() {
   const { profile, activeChild } = useApp();
   const { sketchId } = useLocalSearchParams<{ sketchId: string; editable: string }>();
   const isTherapist = profile?.role === 'therapist';
-  const isParentView = !isTherapist && !activeChild;
+  const isChildView = !!activeChild;
+  const isParentView = !isTherapist && !isChildView;
 
   const [sketch, setSketch] = useState<Sketch | null>(null);
   const [loading, setLoading] = useState(true);
@@ -256,36 +257,49 @@ export default function SketchDetailScreen() {
           </View>
         ) : null}
 
-        {/* Therapist note — editable by therapist, read-only for parent */}
-        {(isTherapist || sketch.therapist_notes) && (
-          <View style={styles.therapistNoteCard}>
-            <View style={styles.noteHeader}>
-              <View style={styles.noteTitleRow}>
-                <View style={styles.therapistNoteIconCircle}>
-                  <Ionicons name="person-circle" size={14} color="#0d9488" />
+        {/* Therapist note */}
+        {isChildView ? (
+          /* Child view — warm, read-only card */
+          sketch.therapist_notes ? (
+            <View style={styles.childTherapistCard}>
+              <View style={styles.childTherapistHeader}>
+                <View style={styles.childTherapistIconCircle}>
+                  <Ionicons name="heart" size={15} color={C.primary} />
                 </View>
-                <Text style={styles.therapistNoteTitle}>Therapist's Note</Text>
-                {!isTherapist && (
-                  <View style={styles.privateTag}>
-                    <Ionicons name="lock-closed" size={9} color="#0d9488" />
-                    <Text style={styles.privateTagText}>Private</Text>
+                <View>
+                  <Text style={styles.childTherapistLabel}>From Your Therapist</Text>
+                  <Text style={styles.childTherapistTitle}>A Note For You</Text>
+                </View>
+              </View>
+              <Text style={styles.childTherapistText}>{sketch.therapist_notes}</Text>
+            </View>
+          ) : null
+        ) : (
+          /* Therapist / parent view — editable */
+          (isTherapist || sketch.therapist_notes) ? (
+            <View style={styles.therapistNoteCard}>
+              <View style={styles.noteHeader}>
+                <View style={styles.noteTitleRow}>
+                  <View style={styles.therapistNoteIconCircle}>
+                    <Ionicons name="person-circle" size={14} color="#0d9488" />
                   </View>
+                  <Text style={styles.therapistNoteTitle}>Therapist's Note</Text>
+                </View>
+                {isTherapist && (
+                  <TouchableOpacity style={styles.editTherapistNoteBtn} onPress={openTherapistNoteEditor}>
+                    <Text style={styles.editTherapistNoteBtnText}>
+                      {sketch.therapist_notes ? 'Edit' : '+ Add Note'}
+                    </Text>
+                  </TouchableOpacity>
                 )}
               </View>
-              {isTherapist && (
-                <TouchableOpacity style={styles.editTherapistNoteBtn} onPress={openTherapistNoteEditor}>
-                  <Text style={styles.editTherapistNoteBtnText}>
-                    {sketch.therapist_notes ? 'Edit' : '+ Add Note'}
-                  </Text>
-                </TouchableOpacity>
+              {sketch.therapist_notes ? (
+                <Text style={styles.therapistNoteText}>{sketch.therapist_notes}</Text>
+              ) : (
+                <Text style={styles.noteEmpty}>No note added yet. Tap "+ Add Note" to write one.</Text>
               )}
             </View>
-            {sketch.therapist_notes ? (
-              <Text style={styles.therapistNoteText}>{sketch.therapist_notes}</Text>
-            ) : (
-              <Text style={styles.noteEmpty}>No note added yet. Tap "+ Add Note" to write one.</Text>
-            )}
-          </View>
+          ) : null
         )}
 
         {/* Parent note */}
@@ -474,6 +488,20 @@ const styles = StyleSheet.create({
   scoresSub: { fontSize: 11, color: C.textMuted, marginBottom: 10 },
   barsWrap: { gap: 10 },
 
+  childTherapistCard: {
+    backgroundColor: '#FFF0F7', borderRadius: 18,
+    padding: 16, gap: 10, borderWidth: 2, borderColor: '#F9A8C9',
+    ...SHADOW.sm,
+  },
+  childTherapistHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  childTherapistIconCircle: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: C.primaryLight, justifyContent: 'center', alignItems: 'center',
+  },
+  childTherapistLabel: { fontSize: 10, fontWeight: '700', color: C.primary, textTransform: 'uppercase', letterSpacing: 0.8 },
+  childTherapistTitle: { fontSize: 14, fontWeight: '800', color: C.text },
+  childTherapistText: { fontSize: 14, color: '#6b2142', lineHeight: 22 },
+
   therapistNoteCard: {
     backgroundColor: '#f0fdfa', borderRadius: 16,
     padding: 16, gap: 8, borderLeftWidth: 3, borderLeftColor: '#0d9488',
@@ -484,11 +512,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#ccfbf1', justifyContent: 'center', alignItems: 'center',
   },
   therapistNoteTitle: { fontSize: 14, fontWeight: '700', color: '#0d9488' },
-  privateTag: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: '#ccfbf1', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10,
-  },
-  privateTagText: { fontSize: 9, fontWeight: '800', color: '#0d9488', letterSpacing: 0.4 },
   editTherapistNoteBtn: {
     paddingHorizontal: 12, paddingVertical: 6,
     borderRadius: 9, backgroundColor: '#ccfbf1',
