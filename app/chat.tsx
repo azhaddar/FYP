@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
-  FlatList, Image,
+  FlatList, Image, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -189,11 +189,12 @@ export default function ChatScreen() {
 
   async function fetchMessages() {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('messages')
-      .select('id, sender_id, receiver_id, content, created_at, read_at, attachment')
+      .select('*')
       .or(`and(sender_id.eq.${myId},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${myId})`)
       .order('created_at', { ascending: true });
+    if (error) console.error('fetchMessages error:', error.message);
     setMessages(data ?? []);
     setLoading(false);
   }
@@ -226,20 +227,30 @@ export default function ChatScreen() {
     const content = text.trim();
     if ((!content && !pendingAttachment) || !myId || !otherId || sending) return;
     setSending(true);
-    setText('');
     const att = pendingAttachment;
+    setText('');
     setPendingAttachment(null);
+
+    const payload: Record<string, unknown> = {
+      sender_id: myId,
+      receiver_id: otherId,
+      content: content || ' ',   // use space if empty (attachment-only message)
+    };
+    if (att) payload.attachment = att;
+
     const { data, error } = await supabase
       .from('messages')
-      .insert({
-        sender_id: myId,
-        receiver_id: otherId,
-        content: content || '',
-        attachment: att ?? undefined,
-      })
-      .select()
+      .insert(payload)
+      .select('*')
       .single();
-    if (!error && data) setMessages(prev => [...prev, data as Message]);
+
+    if (error) {
+      Alert.alert('Failed to send', error.message);
+      setText(content);               // restore text so user doesn't lose it
+      setPendingAttachment(att);
+    } else if (data) {
+      setMessages(prev => [...prev, data as Message]);
+    }
     setSending(false);
   }
 
@@ -255,7 +266,7 @@ export default function ChatScreen() {
     listItems.push({ type: 'msg', msg, key: msg.id });
   }
 
-  const canSend = (text.trim().length > 0 || !!pendingAttachment) && !sending;
+  const canSend = (text.trim().length > 0 || !!pendingAttachment) && !sending && !!myId && !!otherId;
 
   return (
     <KeyboardAvoidingView
