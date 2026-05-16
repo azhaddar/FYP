@@ -346,9 +346,16 @@ export default function ChatScreen() {
                       {msg.content}
                     </Text>
                   ) : null}
-                  <Text style={[styles.bubbleTime, isMine && styles.bubbleTimeMine]}>
-                    {formatTime(msg.created_at)}{isMine ? (msg.read_at ? '  ✓✓' : '  ✓') : ''}
-                  </Text>
+                  <View style={styles.bubbleTimeRow}>
+                    <Text style={[styles.bubbleTime, isMine && styles.bubbleTimeMine]}>
+                      {formatTime(msg.created_at)}
+                    </Text>
+                    {isMine && (
+                      <Text style={msg.read_at ? styles.tickRead : styles.tickSent}>
+                        {msg.read_at ? '✓✓' : '✓'}
+                      </Text>
+                    )}
+                  </View>
                 </View>
               </View>
             );
@@ -452,8 +459,11 @@ const styles = StyleSheet.create({
   bubbleTheirs: { backgroundColor: C.white, borderBottomLeftRadius: 4 },
   bubbleText: { fontSize: 14, color: C.text, lineHeight: 20 },
   bubbleTextMine: { color: C.white },
-  bubbleTime: { fontSize: 10, color: C.textMuted, marginTop: 4, textAlign: 'right' },
+  bubbleTimeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 4, gap: 3 },
+  bubbleTime: { fontSize: 10, color: C.textMuted },
   bubbleTimeMine: { color: 'rgba(255,255,255,0.65)' },
+  tickSent: { fontSize: 10, color: 'rgba(255,255,255,0.5)' },
+  tickRead: { fontSize: 10, color: '#4FC3F7', fontWeight: '700' },
 
   inputBar: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 8,
