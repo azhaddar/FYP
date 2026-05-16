@@ -11,6 +11,7 @@ import { C, EMOTION_COLORS, MAX_W, SHADOW } from '../constants/theme';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { MentionPicker, PickerAttachment } from '../components/MentionPicker';
 import { EmotionIcon } from '../components/EmotionIcon';
+import { useApp } from '../contexts/AppContext';
 
 interface Message {
   id: string;
@@ -160,9 +161,15 @@ function AttachmentPreview({ att, onRemove }: { att: PickerAttachment; onRemove:
 export default function ChatScreen() {
   const router = useRouter();
   const { otherId, otherName } = useLocalSearchParams<{ otherId: string; otherName: string }>();
+  const { profile } = useApp();
 
   const [myId, setMyId] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
+
+  // conversation_id format matches web: therapistId_guardianId
+  const conversationId = profile?.role === 'therapist'
+    ? `${myId}_${otherId}`   // I am therapist
+    : `${otherId}_${myId}`;  // other is therapist, I am parent
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -234,7 +241,8 @@ export default function ChatScreen() {
     const payload: Record<string, unknown> = {
       sender_id: myId,
       receiver_id: otherId,
-      content: content || ' ',   // use space if empty (attachment-only message)
+      conversation_id: conversationId,
+      content: content || ' ',   // space for attachment-only messages
     };
     if (att) payload.attachment = att;
 
