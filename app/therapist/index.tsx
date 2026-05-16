@@ -17,6 +17,7 @@ export default function TherapistHome() {
 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [lastEmotions, setLastEmotions] = useState<Record<string, string>>({});
+  const [guardianNames, setGuardianNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -35,12 +36,25 @@ export default function TherapistHome() {
 
       if (error) throw error;
       setPatients(data ?? []);
-      if (data && data.length > 0) await fetchLastEmotions(data);
+      if (data && data.length > 0) {
+        await Promise.all([fetchLastEmotions(data), fetchGuardianNames(data)]);
+      }
     } catch (e: any) {
       Alert.alert('Error', e.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  }
+
+  async function fetchGuardianNames(pts: Patient[]) {
+    const ids = [...new Set(pts.map(p => p.guardian_id).filter(Boolean))];
+    if (!ids.length) return;
+    const { data } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+    if (data) {
+      const map: Record<string, string> = {};
+      data.forEach(p => { map[p.id] = p.full_name; });
+      setGuardianNames(map);
     }
   }
 
@@ -123,14 +137,9 @@ export default function TherapistHome() {
             const lastEmotion = lastEmotions[patient.id];
             const ec = lastEmotion ? EMOTION_COLORS[lastEmotion] : null;
             return (
-              <TouchableOpacity
+              <View
                 key={patient.id}
                 style={styles.patientCard}
-                onPress={() => router.push({
-                  pathname: '/parent-dashboard',
-                  params: { patientId: patient.id, patientName: patient.full_name },
-                })}
-                activeOpacity={0.85}
               >
                 <View style={styles.cardRow}>
                   {/* Avatar */}
@@ -161,12 +170,36 @@ export default function TherapistHome() {
                   )}
                 </View>
 
-                <View style={styles.cardFooter}>
-                  <Ionicons name="document-text-outline" size={13} color={C.primary} />
-                  <Text style={styles.viewNotesText}>View drawings & add notes</Text>
-                  <Ionicons name="chevron-forward" size={13} color={C.primary} />
+                <View style={styles.cardActions}>
+                  <TouchableOpacity
+                    style={styles.viewBtn}
+                    onPress={() => router.push({
+                      pathname: '/parent-dashboard',
+                      params: { patientId: patient.id, patientName: patient.full_name },
+                    })}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="document-text-outline" size={13} color={C.primary} />
+                    <Text style={styles.viewNotesText}>View Drawings</Text>
+                  </TouchableOpacity>
+                  {patient.guardian_id && (
+                    <TouchableOpacity
+                      style={styles.msgBtn}
+                      onPress={() => router.push({
+                        pathname: '/chat',
+                        params: {
+                          otherId: patient.guardian_id,
+                          otherName: guardianNames[patient.guardian_id] ?? 'Parent',
+                        },
+                      })}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="chatbubble-ellipses-outline" size={13} color={C.white} />
+                      <Text style={styles.msgBtnText}>Message Parent</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
-              </TouchableOpacity>
+              </View>
             );
           })
         )}
@@ -230,12 +263,19 @@ const styles = StyleSheet.create({
   },
   noDrawingText: { fontSize: 10, color: C.textMuted, fontWeight: '600' },
 
-  cardFooter: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+  cardActions: { flexDirection: 'row', gap: 8 },
+  viewBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
     paddingVertical: 9, borderRadius: 10,
     backgroundColor: C.base, borderWidth: 1, borderColor: C.border,
   },
   viewNotesText: { fontSize: 13, fontWeight: '600', color: C.primary },
+  msgBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    paddingVertical: 9, borderRadius: 10,
+    backgroundColor: C.primary,
+  },
+  msgBtnText: { fontSize: 13, fontWeight: '700', color: C.white },
 
   emptyState: { alignItems: 'center', paddingVertical: 60 },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: C.text, marginBottom: 8 },

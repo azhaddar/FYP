@@ -13,6 +13,8 @@ interface AppContextType {
   signOut: () => Promise<void>;
   unreadBadgeCount: number;
   setUnreadBadgeCount: (n: number) => void;
+  unreadMsgCount: number;
+  setUnreadMsgCount: (n: number) => void;
 }
 
 const AppContext = createContext<AppContextType>({
@@ -25,6 +27,8 @@ const AppContext = createContext<AppContextType>({
   signOut: async () => {},
   unreadBadgeCount: 0,
   setUnreadBadgeCount: () => {},
+  unreadMsgCount: 0,
+  setUnreadMsgCount: () => {},
 });
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -33,6 +37,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [activeChild, setActiveChild] = useState<Patient | null>(null);
   const [unreadBadgeCount, setUnreadBadgeCount] = useState(0);
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -75,7 +80,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AppContext.Provider value={{ session, profile, loading, activeChild, enterChildMode, exitChildMode, signOut, unreadBadgeCount, setUnreadBadgeCount }}>
+    <AppContext.Provider value={{ session, profile, loading, activeChild, enterChildMode, exitChildMode, signOut, unreadBadgeCount, setUnreadBadgeCount, unreadMsgCount, setUnreadMsgCount }}>
       {children}
     </AppContext.Provider>
   );

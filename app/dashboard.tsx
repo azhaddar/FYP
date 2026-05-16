@@ -263,10 +263,18 @@ export default function Dashboard() {
                         )}
                       </View>
                       {child.therapist_id && therapistNames[child.therapist_id] && (
-                        <View style={styles.therapistRow}>
+                        <TouchableOpacity
+                          style={styles.therapistRow}
+                          onPress={() => router.push({
+                            pathname: '/therapist-profile',
+                            params: { therapistId: child.therapist_id! },
+                          })}
+                          activeOpacity={0.7}
+                        >
                           <Ionicons name="person-circle-outline" size={13} color={C.primary} />
                           <Text style={styles.therapistText}>{therapistNames[child.therapist_id]}</Text>
-                        </View>
+                          <Ionicons name="chevron-forward" size={11} color={C.primary} />
+                        </TouchableOpacity>
                       )}
                     </View>
                     {ec && lastEmotion && (

@@ -118,6 +118,7 @@ export default function ParentDashboardScreen() {
 
   const [sketches, setSketches] = useState<Sketch[]>([]);
   const [therapistName, setTherapistName] = useState<string | null>(null);
+  const [therapistId, setTherapistId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -128,6 +129,7 @@ export default function ParentDashboardScreen() {
     const { data: patient } = await supabase
       .from('patients').select('therapist_id').eq('id', patientId).single();
     if (!patient?.therapist_id) return;
+    setTherapistId(patient.therapist_id);
     const { data: profile } = await supabase
       .from('profiles').select('full_name').eq('id', patient.therapist_id).single();
     if (profile) setTherapistName(profile.full_name);
@@ -169,10 +171,18 @@ export default function ParentDashboardScreen() {
             <Text style={styles.headerTitle}>{firstName}'s Dashboard</Text>
             <Text style={styles.headerSub}>{total} total drawings</Text>
             {therapistName && (
-              <View style={styles.therapistPill}>
+              <TouchableOpacity
+                style={styles.therapistPill}
+                onPress={() => therapistId && router.push({
+                  pathname: '/therapist-profile',
+                  params: { therapistId },
+                })}
+                activeOpacity={0.8}
+              >
                 <Ionicons name="person-circle-outline" size={13} color="rgba(255,255,255,0.9)" />
                 <Text style={styles.therapistPillText}>Therapist: {therapistName}</Text>
-              </View>
+                <Ionicons name="chevron-forward" size={11} color="rgba(255,255,255,0.7)" />
+              </TouchableOpacity>
             )}
           </View>
           <View style={{ width: 60 }} />
