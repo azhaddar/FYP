@@ -15,7 +15,7 @@ import { PromptType } from './home';
 
 const PROMPT_LABEL: Record<PromptType, string> = {
   self: 'Draw Yourself',
-  house: 'Draw Your House',
+  house: 'Draw Your Home',
 };
 
 export default function UploadScreen() {

@@ -28,9 +28,9 @@ const DRAWING_PROMPTS: Record<PromptType, {
   },
   house: {
     icon: 'home',
-    title: 'Draw Your House',
-    desc: 'Draw a picture of your home — inside or outside.',
-    tip: 'Add doors, windows, your family, or anything you see at home!',
+    title: 'Draw Your Home',
+    desc: 'Draw your home — the house, any trees outside, and the people who live with you.',
+    tip: 'Try adding the house, a tree in the garden, and your family — the more detail, the better!',
     color: '#7c3aed',
     lightColor: '#EDE9FE',
   },
@@ -318,7 +318,14 @@ export default function ChildHome() {
                       <Ionicons name={p.icon as any} size={26} color={isSelected ? '#fff' : p.color} />
                     </View>
                     <View style={styles.promptText}>
-                      <Text style={[styles.promptCardTitle, { color: isSelected ? p.color : C.text }]}>{p.title}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                        <Text style={[styles.promptCardTitle, { color: isSelected ? p.color : C.text }]}>{p.title}</Text>
+                        {type === 'house' && (
+                          <View style={[styles.htpBadge, { backgroundColor: isSelected ? p.color : p.lightColor }]}>
+                            <Text style={[styles.htpBadgeText, { color: isSelected ? '#fff' : p.color }]}>HTP</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={styles.promptCardDesc}>{p.desc}</Text>
                       {isSelected && (
                         <View style={[styles.tipRow, { backgroundColor: p.color + '18' }]}>
@@ -536,6 +543,10 @@ const styles = StyleSheet.create({
   },
   inactiveBannerTitle: { fontSize: 15, fontWeight: '800', color: '#92400e', marginBottom: 3 },
   inactiveBannerSub: { fontSize: 13, color: '#b45309', lineHeight: 18 },
+
+  // HTP badge
+  htpBadge: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
+  htpBadgeText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
 
   // Journal link
   journalLink: {

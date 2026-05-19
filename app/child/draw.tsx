@@ -13,7 +13,7 @@ import { C, SHADOW } from '../../constants/theme';
 
 const PROMPT_LABEL: Record<string, string> = {
   self:  'Draw Yourself',
-  house: 'Draw Your House',
+  house: 'Draw Your Home',
 };
 
 export default function UploadScreen() {
