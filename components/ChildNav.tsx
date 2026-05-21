@@ -17,10 +17,10 @@ type Step = 'category' | 'mood';
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const TABS: { label: string; active: IoniconName; inactive: IoniconName; path: string }[] = [
-  { label: 'Home',    active: 'home',    inactive: 'home-outline',    path: '/child/home'    },
-  { label: 'Draw',    active: 'brush',   inactive: 'brush-outline',   path: '/child/draw'    },
-  { label: 'Journal', active: 'book',    inactive: 'book-outline',    path: '/child/journal' },
-  { label: 'Badges',  active: 'ribbon',  inactive: 'ribbon-outline',  path: '/child/rewards' },
+  { label: 'Home',    active: 'home',    inactive: 'home-outline',    path: '/dashboard' },
+  { label: 'Draw',    active: 'brush',   inactive: 'brush-outline',   path: '/draw'      },
+  { label: 'Journal', active: 'book',    inactive: 'book-outline',    path: '/journal'   },
+  { label: 'Badges',  active: 'ribbon',  inactive: 'ribbon-outline',  path: '/rewards'   },
 ];
 
 const PROMPTS: Record<PromptType, { icon: IoniconName; title: string; desc: string; color: string; light: string }> = {
@@ -87,7 +87,7 @@ export function ChildNav() {
   }
 
   function startDrawing() {
-    router.push({ pathname: '/child/upload' as any, params: { promptType: prompt!, preMood: preMood ?? '' } });
+    router.push({ pathname: '/draw' as any, params: { promptType: prompt!, preMood: preMood ?? '' } });
     setVisible(false);
   }
 

@@ -5,17 +5,17 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../lib/supabaseClient';
-import { useApp } from '../../contexts/AppContext';
-import { Sketch } from '../../types';
-import { C, MAX_W } from '../../constants/theme';
+import { supabase } from '../lib/supabaseClient';
+import { useApp } from '../contexts/AppContext';
+import { Sketch } from '../types';
+import { C, MAX_W } from '../constants/theme';
 
 const NAVY = '#1A1F3C';
-import { ChildShell } from '../../components/ChildShell';
+import { ChildShell } from '../components/ChildShell';
 import {
   BADGES, BadgeDef, computeEarnedBadges,
   getSeenBadgeIds, markBadgesSeen,
-} from '../../utils/badges';
+} from '../utils/badges';
 
 const PARTICLE_COLORS = ['#e13d7d', '#f59e0b', '#06b6d4', '#8b5cf6', '#f97316', '#10b981'];
 const PARTICLE_COUNT = 12;

@@ -5,15 +5,15 @@ import {
   Image, Animated, FlatList, RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { supabase } from '../../lib/supabaseClient';
-import { useApp } from '../../contexts/AppContext';
-import { Sketch } from '../../types';
+import { supabase } from '../lib/supabaseClient';
+import { useApp } from '../contexts/AppContext';
+import { Sketch } from '../types';
 import { Ionicons } from '@expo/vector-icons';
-import { C, EMOTION_COLORS, MAX_W, SHADOW } from '../../constants/theme';
+import { C, EMOTION_COLORS, MAX_W, SHADOW } from '../constants/theme';
 
 const NAVY = '#1A1F3C';
-import { ChildShell } from '../../components/ChildShell';
-import { EmotionIcon } from '../../components/EmotionIcon';
+import { ChildShell } from '../components/ChildShell';
+import { EmotionIcon } from '../components/EmotionIcon';
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -86,7 +86,7 @@ export default function JournalScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={[styles.headerInner, { maxWidth: MAX_W }]}>
-          <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/child/home')} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/dashboard')} style={styles.backBtn}>
             <Ionicons name="chevron-back" size={20} color={C.white} />
           </TouchableOpacity>
           <Text style={styles.title}>{firstName}'s Journal</Text>
@@ -104,7 +104,7 @@ export default function JournalScreen() {
           <Ionicons name="color-palette-outline" size={80} color={C.borderMed} />
           <Text style={styles.emptyTitle}>No drawings yet</Text>
           <Text style={styles.emptyDesc}>Start drawing to see your emotion journal here!</Text>
-          <TouchableOpacity style={styles.drawNowBtn} onPress={() => router.push('/child/home')}>
+          <TouchableOpacity style={styles.drawNowBtn} onPress={() => router.push('/dashboard')}>
             <Ionicons name="brush-outline" size={18} color={C.white} />
             <Text style={styles.drawNowText}>Draw Something!</Text>
           </TouchableOpacity>
@@ -267,7 +267,7 @@ export default function JournalScreen() {
 
       {/* FAB */}
       {!loading && (
-        <TouchableOpacity style={styles.fab} onPress={() => router.push('/child/home')}>
+        <TouchableOpacity style={styles.fab} onPress={() => router.push('/dashboard')}>
           <Ionicons name="brush" size={26} color={C.white} />
         </TouchableOpacity>
       )}

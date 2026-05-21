@@ -5,8 +5,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { C, MAX_W, EMOTION_COLORS, SHADOW } from '../../constants/theme';
-import { EmotionIcon } from '../../components/EmotionIcon';
+import { C, MAX_W, EMOTION_COLORS, SHADOW } from '../constants/theme';
+import { EmotionIcon } from '../components/EmotionIcon';
 
 type Emotion = 'happy' | 'sad' | 'angry' | 'anxious';
 
@@ -242,7 +242,7 @@ export default function ResultScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={styles.drawAgainBtn}
-            onPress={() => router.replace('/child/draw')}
+            onPress={() => router.replace('/draw')}
             activeOpacity={0.85}
           >
             <Ionicons name="brush-outline" size={18} color={C.text} />
@@ -250,7 +250,7 @@ export default function ResultScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.doneBtn, { backgroundColor: data.textColor }]}
-            onPress={() => router.replace('/child/home')}
+            onPress={() => router.replace('/dashboard')}
             activeOpacity={0.85}
           >
             <Ionicons name="checkmark-outline" size={18} color={C.white} />
@@ -260,7 +260,7 @@ export default function ResultScreen() {
 
         <TouchableOpacity
           style={styles.journalLink}
-          onPress={() => router.replace('/child/journal')}
+          onPress={() => router.replace('/journal')}
         >
           <Ionicons name="book-outline" size={16} color={C.textSub} />
           <Text style={styles.journalLinkText}>See all my drawings</Text>

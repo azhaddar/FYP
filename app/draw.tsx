@@ -7,9 +7,9 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { decode } from 'base64-arraybuffer';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { supabase } from '../../lib/supabaseClient';
-import { useApp } from '../../contexts/AppContext';
-import { C, SHADOW } from '../../constants/theme';
+import { supabase } from '../lib/supabaseClient';
+import { useApp } from '../contexts/AppContext';
+import { C, SHADOW } from '../constants/theme';
 
 const PROMPT_LABEL: Record<string, string> = {
   self:  'Draw Yourself',
@@ -89,7 +89,7 @@ export default function UploadScreen() {
       }
 
       router.replace({
-        pathname: '/child/result',
+        pathname: '/result',
         params: {
           emotion,
           scores: scores ? JSON.stringify(scores) : '',

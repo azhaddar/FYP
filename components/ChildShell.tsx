@@ -15,10 +15,10 @@ const SIDEBAR_W = 220;
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const NAV_ITEMS: { id: string; label: string; icon: IoniconName; route: string }[] = [
-  { id: 'home',    label: 'Home',    icon: 'home-outline',    route: '/child/home'    },
-  { id: 'draw',    label: 'Draw',    icon: 'brush-outline',   route: '/child/home'    },
-  { id: 'journal', label: 'Journal', icon: 'book-outline',    route: '/child/journal' },
-  { id: 'badges',  label: 'Badges',  icon: 'ribbon-outline',  route: '/child/rewards' },
+  { id: 'home',    label: 'Home',    icon: 'home-outline',    route: '/dashboard' },
+  { id: 'draw',    label: 'Draw',    icon: 'brush-outline',   route: '/draw'      },
+  { id: 'journal', label: 'Journal', icon: 'book-outline',    route: '/journal'   },
+  { id: 'badges',  label: 'Badges',  icon: 'ribbon-outline',  route: '/rewards'   },
 ];
 
 export function ChildShell({ children }: { children: React.ReactNode }) {

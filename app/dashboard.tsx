@@ -47,7 +47,7 @@ export default function Dashboard() {
   const [childGender, setChildGender] = useState<'Male' | 'Female' | 'Other' | ''>('');
   const [saving, setSaving]         = useState(false);
 
-  const pendingRoute = useRef<string>('/child/home');
+  const pendingRoute = useRef<string>('/journal');
 
   useEffect(() => {
     if (activeChild) router.replace(pendingRoute.current as any);
@@ -390,7 +390,7 @@ export default function Dashboard() {
                         </View>
                         <TouchableOpacity
                           style={w.viewBtn}
-                          onPress={() => { pendingRoute.current = '/child/journal'; enterChildMode(child); }}
+                          onPress={() => { pendingRoute.current = '/journal'; enterChildMode(child); }}
                         >
                           <Text style={w.viewBtnText}>view activity</Text>
                           <Ionicons name="chevron-forward" size={12} color={NAVY} />
@@ -610,7 +610,7 @@ export default function Dashboard() {
 
                   <View style={s.cardActions}>
                     <TouchableOpacity style={s.journalBtn}
-                      onPress={() => { pendingRoute.current = '/child/journal'; enterChildMode(child); }}>
+                      onPress={() => { pendingRoute.current = '/journal'; enterChildMode(child); }}>
                       <Ionicons name="book-outline" size={13} color={NAVY} />
                       <Text style={s.journalBtnText}>Journal</Text>
                     </TouchableOpacity>
@@ -620,7 +620,7 @@ export default function Dashboard() {
                       <Text style={s.dashboardBtnText}>Dashboard</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={s.drawBtn}
-                      onPress={() => { pendingRoute.current = '/child/home'; enterChildMode(child); }}>
+                      onPress={() => { pendingRoute.current = '/journal'; enterChildMode(child); }}>
                       <Ionicons name="brush-outline" size={13} color={C.white} />
                       <Text style={s.drawBtnText}>Draw Now</Text>
                     </TouchableOpacity>
