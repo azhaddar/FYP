@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabaseClient';
 import { C, EMOTION_COLORS, MAX_W, SHADOW } from '../constants/theme';
-import { ParentNav } from '../components/ParentNav';
+
+const NAVY = '#1A1F3C';
+import { ParentShell } from '../components/ParentShell';
 import { EmotionIcon } from '../components/EmotionIcon';
 
 type SketchRow = { id: string; emotion: string; created_at: string; patient_id: string; notes: string | null };
@@ -258,6 +260,8 @@ export default function ActivityScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedChild, setSelectedChild] = useState<string>('all');
+  const { width } = useWindowDimensions();
+  const isWide = width >= 768;
 
   useEffect(() => { fetchData(); }, []);
 
@@ -298,11 +302,12 @@ export default function ActivityScreen() {
   }, {} as Record<string, number>);
 
   return (
+    <ParentShell>
     <View style={styles.root}>
-      <View style={styles.header}>
+      <View style={[styles.header, isWide && styles.headerWide]}>
         <View style={styles.headerInner}>
-          <Text style={styles.headerTitle}>Activity</Text>
-          <Text style={styles.headerSub}>
+          <Text style={[styles.headerTitle, isWide && styles.headerTitleWide]}>Activity</Text>
+          <Text style={[styles.headerSub, isWide && styles.headerSubWide]}>
             {patients.length} {patients.length === 1 ? 'child' : 'children'} · {sketches.length} total drawings
           </Text>
         </View>
@@ -310,18 +315,18 @@ export default function ActivityScreen() {
         {!loading && patients.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsRow}>
             <TouchableOpacity
-              style={[styles.tab, selectedChild === 'all' && styles.tabActive]}
+              style={[styles.tab, isWide && styles.tabWide, selectedChild === 'all' && styles.tabActive, isWide && selectedChild === 'all' && styles.tabActiveWide]}
               onPress={() => setSelectedChild('all')}
             >
-              <Text style={[styles.tabText, selectedChild === 'all' && styles.tabTextActive]}>All Children</Text>
+              <Text style={[styles.tabText, isWide && styles.tabTextWide, selectedChild === 'all' && styles.tabTextActive, isWide && selectedChild === 'all' && styles.tabTextActiveWide]}>All Children</Text>
             </TouchableOpacity>
             {patients.map(p => (
               <TouchableOpacity
                 key={p.id}
-                style={[styles.tab, selectedChild === p.id && styles.tabActive]}
+                style={[styles.tab, isWide && styles.tabWide, selectedChild === p.id && styles.tabActive, isWide && selectedChild === p.id && styles.tabActiveWide]}
                 onPress={() => setSelectedChild(p.id)}
               >
-                <Text style={[styles.tabText, selectedChild === p.id && styles.tabTextActive]}>
+                <Text style={[styles.tabText, isWide && styles.tabTextWide, selectedChild === p.id && styles.tabTextActive, isWide && selectedChild === p.id && styles.tabTextActiveWide]}>
                   {p.full_name.split(' ')[0]}
                 </Text>
               </TouchableOpacity>
@@ -457,15 +462,15 @@ export default function ActivityScreen() {
         )}
       </ScrollView>
 
-      <ParentNav />
     </View>
+    </ParentShell>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.base },
 
-  header: { backgroundColor: C.primary, paddingTop: 52, paddingBottom: 0 },
+  header: { backgroundColor: NAVY, paddingTop: 52, paddingBottom: 0 },
   headerInner: { paddingHorizontal: 24, paddingBottom: 14 },
   headerTitle: { fontSize: 26, fontWeight: '800', color: C.white },
   headerSub: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 3 },
@@ -474,7 +479,15 @@ const styles = StyleSheet.create({
   tab: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)' },
   tabActive: { backgroundColor: C.white },
   tabText: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.85)' },
-  tabTextActive: { color: C.primary },
+  tabTextActive: { color: NAVY },
+
+  headerWide:     { backgroundColor: '#fff', paddingTop: 0, borderBottomWidth: 1, borderBottomColor: '#EBEBEB' },
+  headerTitleWide:{ color: NAVY },
+  headerSubWide:  { color: '#888' },
+  tabWide:        { backgroundColor: '#F4F5FA' },
+  tabActiveWide:  { backgroundColor: NAVY },
+  tabTextWide:    { color: NAVY },
+  tabTextActiveWide: { color: '#fff' },
 
   content: { padding: 20, paddingBottom: 40, maxWidth: MAX_W, alignSelf: 'center', width: '100%' },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: C.text, marginBottom: 12, marginTop: 4 },

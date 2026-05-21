@@ -7,6 +7,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../lib/supabaseClient';
 import { C, MAX_W, SHADOW } from '../constants/theme';
 
+const NAVY = '#1A1F3C';
+
 interface TherapistData {
   full_name: string;
   email: string;
@@ -220,7 +222,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.base },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  header: { backgroundColor: C.primary, paddingTop: 52, paddingBottom: 16 },
+  header: { backgroundColor: NAVY, paddingTop: 52, paddingBottom: 16 },
   headerInner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, maxWidth: MAX_W, alignSelf: 'center', width: '100%',
@@ -259,7 +261,7 @@ const styles = StyleSheet.create({
 
   avatar: {
     width: 66, height: 78, borderRadius: 12,
-    backgroundColor: C.primary, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: NAVY, justifyContent: 'center', alignItems: 'center',
     flexShrink: 0,
   },
 

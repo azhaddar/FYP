@@ -6,6 +6,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
 import { C, EMOTION_COLORS, SHADOW } from '../constants/theme';
+
+const NAVY = '#1A1F3C';
 import { EmotionIcon } from './EmotionIcon';
 import { useApp } from '../contexts/AppContext';
 
@@ -106,7 +108,7 @@ export function ChildNav() {
                   <Ionicons
                     name={active ? tab.active : tab.inactive}
                     size={20}
-                    color={active ? C.primary : C.textMuted}
+                    color={active ? NAVY : C.textMuted}
                   />
                   {tab.label === 'Badges' && unreadBadgeCount > 0 && (
                     <View style={styles.badgeDot} />
@@ -247,8 +249,8 @@ const styles = StyleSheet.create({
   },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20 },
-  pillActive: { backgroundColor: C.primaryLight },
-  pillLabel: { fontSize: 13, fontWeight: '700', color: C.primary },
+  pillActive: { backgroundColor: 'rgba(26,31,60,0.08)' },
+  pillLabel: { fontSize: 13, fontWeight: '700', color: NAVY },
   inactiveLabel: { fontSize: 10, fontWeight: '500', color: C.textMuted },
   badgeDot: {
     position: 'absolute', top: -3, right: -5,

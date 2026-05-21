@@ -8,7 +8,9 @@ import { useApp } from '../../contexts/AppContext';
 import { supabase } from '../../lib/supabaseClient';
 import { Ionicons } from '@expo/vector-icons';
 import { C, EMOTION_COLORS, MAX_W } from '../../constants/theme';
-import { ChildNav } from '../../components/ChildNav';
+
+const NAVY = '#1A1F3C';
+import { ChildShell } from '../../components/ChildShell';
 import { EmotionIcon } from '../../components/EmotionIcon';
 import { computeEarnedBadgeIds, getSeenBadgeIds } from '../../utils/badges';
 
@@ -137,6 +139,7 @@ export default function ChildHome() {
   const firstName = activeChild.full_name.split(' ')[0];
 
   return (
+    <ChildShell>
     <View style={styles.root}>
       {/* Top bar */}
       <View style={styles.topBar}>
@@ -378,8 +381,6 @@ export default function ChildHome() {
 
       </ScrollView>
 
-      <ChildNav />
-
       {/* Pre-draw mood modal */}
       <Modal visible={pendingMethod} transparent animationType="slide" onRequestClose={() => setPendingMethod(false)}>
         <Pressable style={moodStyles.backdrop} onPress={() => setPendingMethod(false)}>
@@ -435,6 +436,7 @@ export default function ChildHome() {
         </Pressable>
       </Modal>
     </View>
+    </ChildShell>
   );
 }
 
@@ -442,7 +444,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#FFF8F0' },
 
   topBar: {
-    backgroundColor: C.primary,
+    backgroundColor: NAVY,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 52, paddingBottom: 16, paddingHorizontal: 20,
   },

@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabaseClient';
 import { useApp } from '../contexts/AppContext';
 import { C, MAX_W, SHADOW } from '../constants/theme';
-import { ParentNav } from '../components/ParentNav';
+
+const NAVY = '#1A1F3C';
+import { ParentShell } from '../components/ParentShell';
 
 interface Conversation {
   therapistId: string;
@@ -37,6 +39,8 @@ export default function MessagesScreen() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { width } = useWindowDimensions();
+  const isWide = width >= 768;
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -111,11 +115,12 @@ export default function MessagesScreen() {
   }
 
   return (
+    <ParentShell>
     <View style={styles.root}>
-      <View style={styles.header}>
+      <View style={[styles.header, isWide && styles.headerWide]}>
         <View style={styles.headerInner}>
-          <Text style={styles.headerTitle}>Messages</Text>
-          <Text style={styles.headerSub}>Chat with your child's therapist</Text>
+          <Text style={[styles.headerTitle, isWide && styles.headerTitleWide]}>Messages</Text>
+          <Text style={[styles.headerSub, isWide && styles.headerSubWide]}>Chat with your child's therapist</Text>
         </View>
       </View>
 
@@ -188,20 +193,23 @@ export default function MessagesScreen() {
         )}
       </ScrollView>
 
-      <ParentNav />
     </View>
+    </ParentShell>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.base },
 
-  header: { backgroundColor: C.primary, paddingTop: 52, paddingBottom: 20 },
+  header: { backgroundColor: NAVY, paddingTop: 52, paddingBottom: 20 },
+  headerWide:      { backgroundColor: '#fff', paddingTop: 0, borderBottomWidth: 1, borderBottomColor: '#EBEBEB' },
   headerInner: {
     paddingHorizontal: 24, maxWidth: MAX_W, alignSelf: 'center', width: '100%',
   },
-  headerTitle: { fontSize: 26, fontWeight: '700', color: C.white },
-  headerSub: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 3 },
+  headerTitle:     { fontSize: 26, fontWeight: '700', color: C.white },
+  headerTitleWide: { color: NAVY },
+  headerSub:       { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 3 },
+  headerSubWide:   { color: '#888' },
 
   content: {
     padding: 20, paddingBottom: 40,

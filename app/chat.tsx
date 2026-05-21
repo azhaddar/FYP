@@ -8,6 +8,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../lib/supabaseClient';
 import { C, EMOTION_COLORS, MAX_W, SHADOW } from '../constants/theme';
+
+const NAVY = '#1A1F3C';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { MentionPicker, PickerAttachment } from '../components/MentionPicker';
 import { EmotionIcon } from '../components/EmotionIcon';
@@ -416,7 +418,7 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F5F0FB' },
 
-  header: { backgroundColor: C.primary, paddingTop: 52, paddingBottom: 14 },
+  header: { backgroundColor: NAVY, paddingTop: 52, paddingBottom: 14 },
   headerInner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, maxWidth: MAX_W, alignSelf: 'center', width: '100%',
@@ -455,7 +457,7 @@ const styles = StyleSheet.create({
     maxWidth: '82%', borderRadius: 18, paddingHorizontal: 12, paddingVertical: 9,
     ...SHADOW.sm,
   },
-  bubbleMine: { backgroundColor: C.primary, borderBottomRightRadius: 4 },
+  bubbleMine: { backgroundColor: NAVY, borderBottomRightRadius: 4 },
   bubbleTheirs: { backgroundColor: C.white, borderBottomLeftRadius: 4 },
   bubbleText: { fontSize: 14, color: C.text, lineHeight: 20 },
   bubbleTextMine: { color: C.white },
@@ -483,7 +485,7 @@ const styles = StyleSheet.create({
   },
   sendBtn: {
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: C.primary, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: NAVY, justifyContent: 'center', alignItems: 'center',
     flexShrink: 0,
   },
   sendBtnDisabled: { backgroundColor: C.borderMed },

@@ -10,7 +10,9 @@ import { useApp } from '../../contexts/AppContext';
 import { Sketch } from '../../types';
 import { Ionicons } from '@expo/vector-icons';
 import { C, EMOTION_COLORS, MAX_W, SHADOW } from '../../constants/theme';
-import { ChildNav } from '../../components/ChildNav';
+
+const NAVY = '#1A1F3C';
+import { ChildShell } from '../../components/ChildShell';
 import { EmotionIcon } from '../../components/EmotionIcon';
 
 function formatDate(iso: string) {
@@ -79,6 +81,7 @@ export default function JournalScreen() {
   const focused = sketches[activeIndex];
 
   return (
+    <ChildShell>
     <View style={styles.root}>
       {/* Header */}
       <View style={styles.header}>
@@ -268,16 +271,15 @@ export default function JournalScreen() {
           <Ionicons name="brush" size={26} color={C.white} />
         </TouchableOpacity>
       )}
-
-      <ChildNav />
     </View>
+    </ChildShell>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#FFF8F0' },
 
-  header: { backgroundColor: C.primary, paddingTop: 52, paddingBottom: 18 },
+  header: { backgroundColor: NAVY, paddingTop: 52, paddingBottom: 18 },
   headerInner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 24, alignSelf: 'center', width: '100%',

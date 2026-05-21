@@ -9,7 +9,9 @@ import { supabase } from '../../lib/supabaseClient';
 import { useApp } from '../../contexts/AppContext';
 import { Sketch } from '../../types';
 import { C, MAX_W } from '../../constants/theme';
-import { ChildNav } from '../../components/ChildNav';
+
+const NAVY = '#1A1F3C';
+import { ChildShell } from '../../components/ChildShell';
 import {
   BADGES, BadgeDef, computeEarnedBadges,
   getSeenBadgeIds, markBadgesSeen,
@@ -186,6 +188,7 @@ export default function RewardsScreen() {
   const pct = Math.round((earnedBadges.length / BADGES.length) * 100);
 
   return (
+    <ChildShell>
     <View style={styles.root}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{firstName}'s Badges</Text>
@@ -257,12 +260,11 @@ export default function RewardsScreen() {
         </ScrollView>
       )}
 
-      <ChildNav />
-
       {celebration && (
         <CelebrationModal badge={celebration} onDismiss={() => setCelebration(null)} />
       )}
     </View>
+    </ChildShell>
   );
 }
 
@@ -309,7 +311,7 @@ function LockedBadgeCard({ badge, sketches }: { badge: BadgeDef; sketches: Sketc
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#FFF8F0' },
   header: {
-    backgroundColor: C.primary,
+    backgroundColor: NAVY,
     paddingTop: 52, paddingBottom: 22, paddingHorizontal: 24,
   },
   headerTitle: { fontSize: 22, fontWeight: '900', color: '#fff', marginBottom: 2 },

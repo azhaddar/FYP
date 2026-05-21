@@ -5,6 +5,8 @@ import { useRouter, usePathname } from 'expo-router';
 import { C, SHADOW } from '../constants/theme';
 import { useApp } from '../contexts/AppContext';
 
+const NAVY = '#1A1F3C';
+
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const TABS: { label: string; active: IoniconName; inactive: IoniconName; path: string }[] = [
@@ -36,7 +38,7 @@ export function ParentNav() {
                 <Ionicons
                   name={active ? tab.active : tab.inactive}
                   size={20}
-                  color={active ? C.primary : C.textMuted}
+                  color={active ? NAVY : C.textMuted}
                 />
                 {showBadge && (
                   <View style={styles.badge}>
@@ -74,18 +76,18 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   pillActive: {
-    backgroundColor: C.primaryLight,
+    backgroundColor: 'rgba(26,31,60,0.08)',
   },
   iconWrap: { position: 'relative' },
   badge: {
     position: 'absolute', top: -5, right: -8,
-    backgroundColor: C.primary, borderRadius: 8,
+    backgroundColor: NAVY, borderRadius: 8,
     minWidth: 16, height: 16,
     justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3,
   },
   badgeText: { fontSize: 9, fontWeight: '800', color: C.white },
   pillLabel: {
-    fontSize: 13, fontWeight: '700', color: C.primary,
+    fontSize: 13, fontWeight: '700', color: NAVY,
   },
   inactiveLabel: {
     fontSize: 10, fontWeight: '500', color: C.textMuted,

@@ -9,6 +9,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../lib/supabaseClient';
 import { useApp } from '../contexts/AppContext';
 import { C, EMOTION_COLORS, MAX_W, SHADOW } from '../constants/theme';
+
+const NAVY = '#1A1F3C';
 import { Sketch } from '../types';
 import { EmotionIcon } from '../components/EmotionIcon';
 
@@ -411,7 +413,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#FFF8F0' },
   loadingRoot: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF8F0' },
 
-  header: { backgroundColor: C.primary, paddingTop: 52, paddingBottom: 16 },
+  header: { backgroundColor: NAVY, paddingTop: 52, paddingBottom: 16 },
   headerInner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, alignSelf: 'center', width: '100%',

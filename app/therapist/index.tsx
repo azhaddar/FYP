@@ -9,6 +9,8 @@ import { supabase } from '../../lib/supabaseClient';
 import { useApp } from '../../contexts/AppContext';
 import { Patient } from '../../types';
 import { C, EMOTION_COLORS, MAX_W, SHADOW } from '../../constants/theme';
+
+const NAVY = '#1A1F3C';
 import { EmotionIcon } from '../../components/EmotionIcon';
 
 export default function TherapistHome() {
@@ -213,7 +215,7 @@ export default function TherapistHome() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.base },
 
-  header: { backgroundColor: C.primary, paddingTop: 52, paddingBottom: 0 },
+  header: { backgroundColor: NAVY, paddingTop: 52, paddingBottom: 0 },
   headerInner: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
     paddingHorizontal: 24, paddingBottom: 20,

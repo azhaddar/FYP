@@ -5,7 +5,9 @@ import {
 import { useRouter } from 'expo-router';
 import { useApp } from '../contexts/AppContext';
 import { C, MAX_W } from '../constants/theme';
-import { ParentNav } from '../components/ParentNav';
+
+const NAVY = '#1A1F3C';
+import { ParentShell } from '../components/ParentShell';
 
 export default function SettingsScreen() {
   const { profile, signOut } = useApp();
@@ -23,11 +25,12 @@ export default function SettingsScreen() {
   }
 
   return (
+    <ParentShell>
     <View style={styles.root}>
-      {/* Pink header */}
-      <View style={styles.header}>
+      {/* Header */}
+      <View style={[styles.header, width >= 768 && styles.headerWide]}>
         <View style={[styles.headerInner, width >= 768 && { maxWidth: MAX_W }]}>
-          <Text style={styles.headerTitle}>Settings</Text>
+          <Text style={[styles.headerTitle, width >= 768 && styles.headerTitleWide]}>Settings</Text>
         </View>
       </View>
 
@@ -68,8 +71,8 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      <ParentNav />
     </View>
+    </ParentShell>
   );
 }
 
@@ -98,9 +101,11 @@ const rowStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.base },
 
-  header: { backgroundColor: C.primary, paddingTop: 52, paddingBottom: 20 },
+  header: { backgroundColor: NAVY, paddingTop: 52, paddingBottom: 20 },
+  headerWide:      { backgroundColor: '#fff', paddingTop: 0, borderBottomWidth: 1, borderBottomColor: '#EBEBEB' },
   headerInner: { paddingHorizontal: 24, alignSelf: 'center', width: '100%' },
-  headerTitle: { fontSize: 26, fontWeight: '800', color: C.white },
+  headerTitle:     { fontSize: 26, fontWeight: '800', color: C.white },
+  headerTitleWide: { color: NAVY },
 
   content: { flex: 1, padding: 24 },
   contentWide: { maxWidth: MAX_W, alignSelf: 'center', width: '100%' },

@@ -8,6 +8,8 @@ import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabaseClient';
 import { C, MAX_W } from '../constants/theme';
 
+const NAVY = '#1A1F3C';
+
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -187,7 +189,7 @@ const styles = StyleSheet.create({
   },
   brandPanel: {
     width: '40%',
-    backgroundColor: C.primary,
+    backgroundColor: NAVY,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 40,
@@ -222,7 +224,7 @@ const styles = StyleSheet.create({
     marginVertical: 40,
   },
   cardHeader: {
-    backgroundColor: C.primary,
+    backgroundColor: NAVY,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

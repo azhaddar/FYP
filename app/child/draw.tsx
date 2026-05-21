@@ -31,7 +31,7 @@ export default function UploadScreen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       quality: 0.85,
       base64: true,
       allowsEditing: true,
@@ -106,7 +106,6 @@ export default function UploadScreen() {
 
   return (
     <View style={styles.root}>
-
       {/* Top bar */}
       <View style={styles.toolbar}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>

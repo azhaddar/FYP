@@ -7,6 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../lib/supabaseClient';
 import { C, EMOTION_COLORS, MAX_W, SHADOW } from '../constants/theme';
+
+const NAVY = '#1A1F3C';
 import { Sketch } from '../types';
 import { EmotionIcon } from '../components/EmotionIcon';
 
@@ -283,7 +285,7 @@ export default function ParentDashboardScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.base },
 
-  header: { backgroundColor: C.primary, paddingTop: 52, paddingBottom: 18 },
+  header: { backgroundColor: NAVY, paddingTop: 52, paddingBottom: 18 },
   therapistPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     marginTop: 6, backgroundColor: 'rgba(255,255,255,0.18)',
