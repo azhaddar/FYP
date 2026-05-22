@@ -1,22 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Modal, TouchableOpacity,
-  useWindowDimensions, ActivityIndicator, Animated,
+  ActivityIndicator, Animated,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabaseClient';
 import { useApp } from '../contexts/AppContext';
-import { Sketch } from '../types';
+import { Patient, Sketch } from '../types';
 import { C, MAX_W } from '../constants/theme';
-
-const NAVY = '#1A1F3C';
-import { ChildShell } from '../components/ChildShell';
+import { ParentShell } from '../components/ParentShell';
 import {
   BADGES, BadgeDef, computeEarnedBadges,
   getSeenBadgeIds, markBadgesSeen,
 } from '../utils/badges';
 
+const NAVY = '#1A1F3C';
 const PARTICLE_COLORS = ['#e13d7d', '#f59e0b', '#06b6d4', '#8b5cf6', '#f97316', '#10b981'];
 const PARTICLE_COUNT = 12;
 
@@ -116,19 +115,15 @@ function ClaimableBadgeCard({ badge, onClaim }: { badge: BadgeDef; onClaim: () =
       onPress={onClaim}
       activeOpacity={0.88}
     >
-      {/* Pulsing glow ring */}
       <Animated.View style={[
         claimCardStyles.glowRing,
         { borderColor: badge.color, opacity: pulse },
       ]} />
-
       <View style={[claimCardStyles.iconCircle, { backgroundColor: badge.color }]}>
         <Ionicons name={badge.icon as any} size={26} color="#fff" />
       </View>
-
       <Text style={[claimCardStyles.name, { color: badge.color }]}>{badge.name}</Text>
       <Text style={claimCardStyles.desc} numberOfLines={2}>{badge.desc}</Text>
-
       <View style={[claimCardStyles.claimBtn, { backgroundColor: badge.color }]}>
         <Ionicons name="gift-outline" size={13} color="#fff" />
         <Text style={claimCardStyles.claimBtnText}>Tap to Claim</Text>
@@ -138,49 +133,116 @@ function ClaimableBadgeCard({ badge, onClaim }: { badge: BadgeDef; onClaim: () =
 }
 
 export default function RewardsScreen() {
-  const { activeChild, setUnreadBadgeCount } = useApp();
+  const { profile } = useApp();
   const router = useRouter();
-  const { width } = useWindowDimensions();
+  const { patientId, patientName } = useLocalSearchParams<{ patientId: string; patientName: string }>();
+
+  const [children, setChildren] = useState<Patient[]>([]);
+  const [childrenLoading, setChildrenLoading] = useState(false);
+
   const [sketches, setSketches] = useState<Sketch[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [seenIds, setSeenIds] = useState<string[]>([]);
   const [celebration, setCelebration] = useState<BadgeDef | null>(null);
 
   useEffect(() => {
-    if (!activeChild) { router.replace('/dashboard'); return; }
-    fetchData();
-  }, [activeChild]);
+    if (patientId) {
+      setLoading(true);
+      fetchData(patientId);
+    } else {
+      setChildrenLoading(true);
+      fetchChildren();
+    }
+  }, [patientId]);
 
-  async function fetchData() {
-    if (!activeChild) return;
+  async function fetchChildren() {
+    if (!profile?.id) return;
+    const { data } = await supabase
+      .from('patients')
+      .select('*')
+      .eq('guardian_id', profile.id)
+      .order('full_name');
+    setChildren(data ?? []);
+    setChildrenLoading(false);
+  }
+
+  async function fetchData(pid: string) {
     const { data } = await supabase
       .from('sketches')
       .select('emotion, created_at')
-      .eq('patient_id', activeChild.id)
+      .eq('patient_id', pid)
       .order('created_at', { ascending: false });
 
     const fetched = (data ?? []) as Sketch[];
     setSketches(fetched);
 
-    const loadedSeenIds = await getSeenBadgeIds(activeChild.id);
+    const loadedSeenIds = await getSeenBadgeIds(pid);
     setSeenIds(loadedSeenIds);
-
-    // Clear the nav dot now that user has opened the page
-    setUnreadBadgeCount(0);
     setLoading(false);
   }
 
   async function handleClaim(badge: BadgeDef) {
-    if (!activeChild) return;
+    if (!patientId) return;
     setCelebration(badge);
     const newSeenIds = [...seenIds, badge.id];
     setSeenIds(newSeenIds);
-    await markBadgesSeen(activeChild.id, newSeenIds);
+    await markBadgesSeen(patientId, newSeenIds);
   }
 
-  if (!activeChild) return null;
+  // ── No patientId: child picker ────────────────────────────
+  if (!patientId) {
+    return (
+      <ParentShell>
+        <View style={styles.root}>
+          <View style={[styles.header, false]}>
+            <Text style={[styles.headerTitle, false]}>Rewards</Text>
+            <Text style={[styles.headerPickerSub, false]}>Select a child to view their badges</Text>
+          </View>
 
-  const firstName = activeChild.full_name.split(' ')[0];
+
+          {childrenLoading ? (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator size="large" color={C.primary} />
+            </View>
+          ) : children.length === 0 ? (
+            <View style={styles.loadingWrap}>
+              <Ionicons name="people-outline" size={60} color={C.borderMed} />
+              <Text style={{ fontSize: 17, fontWeight: '700', color: C.text, marginTop: 16 }}>No children yet</Text>
+              <TouchableOpacity
+                style={{ marginTop: 20, backgroundColor: NAVY, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }}
+                onPress={() => router.push('/dashboard')}
+              >
+                <Text style={{ color: '#fff', fontWeight: '700' }}>Go to Children</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <ScrollView contentContainerStyle={pickerStyles.list}>
+              {children.map(child => (
+                <TouchableOpacity
+                  key={child.id}
+                  style={pickerStyles.card}
+                  onPress={() => router.push({ pathname: '/rewards', params: { patientId: child.id, patientName: child.full_name } })}
+                  activeOpacity={0.75}
+                >
+                  <View style={pickerStyles.avatar}>
+                    <Text style={pickerStyles.avatarText}>{child.full_name.charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={pickerStyles.name}>{child.full_name}</Text>
+                    <Text style={pickerStyles.meta}>{child.age} y/o · {child.gender}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={C.borderMed} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+      </ParentShell>
+    );
+  }
+
+  // ── Has patientId: rewards view ───────────────────────────
+  const firstName = (patientName ?? '').split(' ')[0] || 'Child';
   const earnedBadges = computeEarnedBadges(sketches);
   const claimableBadges = earnedBadges.filter(b => !seenIds.includes(b.id));
   const claimedBadges = earnedBadges.filter(b => seenIds.includes(b.id));
@@ -188,13 +250,23 @@ export default function RewardsScreen() {
   const pct = Math.round((earnedBadges.length / BADGES.length) * 100);
 
   return (
-    <ChildShell>
+    <ParentShell>
     <View style={styles.root}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{firstName}'s Badges</Text>
-        <Text style={styles.headerSub}>{earnedBadges.length} of {BADGES.length} earned</Text>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${pct}%` as any }]} />
+      <View style={[styles.header, false]}>
+        <View style={styles.headerInner}>
+          <TouchableOpacity
+            onPress={() => router.canGoBack() ? router.back() : router.replace('/rewards')}
+            style={styles.backBtn}
+          >
+            <Ionicons name="chevron-back" size={20} color={'#fff'} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.headerTitle, false]}>{firstName}'s Badges</Text>
+            <Text style={[styles.headerSub, false]}>{earnedBadges.length} of {BADGES.length} earned</Text>
+          </View>
+        </View>
+        <View style={[styles.progressTrack, false]}>
+          <View style={[styles.progressFill, false, { width: `${pct}%` as any }]} />
         </View>
       </View>
 
@@ -206,11 +278,10 @@ export default function RewardsScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.content,
-            width >= 768 && { maxWidth: MAX_W, alignSelf: 'center', width: '100%' },
+            false,
           ]}
           showsVerticalScrollIndicator={false}
         >
-          {/* Claimable — shown first, most prominent */}
           {claimableBadges.length > 0 && (
             <>
               <View style={styles.claimHeader}>
@@ -225,7 +296,6 @@ export default function RewardsScreen() {
             </>
           )}
 
-          {/* Already claimed */}
           {claimedBadges.length > 0 && (
             <>
               <Text style={styles.sectionTitle}>Earned</Text>
@@ -237,7 +307,6 @@ export default function RewardsScreen() {
             </>
           )}
 
-          {/* Locked */}
           {lockedBadges.length > 0 && (
             <>
               <Text style={styles.sectionTitle}>
@@ -264,7 +333,7 @@ export default function RewardsScreen() {
         <CelebrationModal badge={celebration} onDismiss={() => setCelebration(null)} />
       )}
     </View>
-    </ChildShell>
+    </ParentShell>
   );
 }
 
@@ -312,12 +381,23 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#FFF8F0' },
   header: {
     backgroundColor: NAVY,
-    paddingTop: 52, paddingBottom: 22, paddingHorizontal: 24,
+    paddingTop: 52, paddingBottom: 0, paddingHorizontal: 24,
   },
-  headerTitle: { fontSize: 22, fontWeight: '900', color: '#fff', marginBottom: 2 },
-  headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: '600', marginBottom: 12 },
-  progressTrack: { height: 7, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' },
+  headerWide: { backgroundColor: '#fff', paddingTop: 0, borderBottomWidth: 1, borderBottomColor: '#EBEBEB' },
+  headerInner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8,
+  },
+  backBtn: {},
+  headerTitle: { fontSize: 26, fontWeight: '800', color: '#fff', marginBottom: 2 },
+  headerTitleWide: { color: NAVY },
+  headerSub: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 3 },
+  headerSubWide: { color: '#888' },
+  headerPickerSub: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 3, paddingBottom: 14 },
+  headerPickerSubWide: { color: '#888' },
+  progressTrack: { height: 7, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden', marginBottom: 14 },
+  progressTrackWide: { backgroundColor: '#EBEBEB' },
   progressFill: { height: '100%', borderRadius: 4, backgroundColor: '#fff' },
+  progressFillWide: { backgroundColor: NAVY },
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: { padding: 18, paddingBottom: 40 },
 
@@ -336,6 +416,22 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: '#fde68a',
   },
   allEarnedText: { flex: 1, fontSize: 15, fontWeight: '700', color: '#92400e' },
+});
+
+const pickerStyles = StyleSheet.create({
+  list: { padding: 20, gap: 10 },
+  card: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: C.white, borderRadius: 16, padding: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
+  },
+  avatar: {
+    width: 48, height: 48, borderRadius: 14,
+    backgroundColor: '#EDEDF8', justifyContent: 'center', alignItems: 'center',
+  },
+  avatarText: { fontSize: 18, fontWeight: '800', color: NAVY },
+  name: { fontSize: 16, fontWeight: '700', color: NAVY },
+  meta: { fontSize: 12, color: C.textSub },
 });
 
 const BASE_CARD: any = {

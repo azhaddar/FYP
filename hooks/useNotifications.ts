@@ -19,16 +19,22 @@ const NEGATIVE = new Set(['sad', 'angry', 'anxious']);
 export function useNotifications(guardianId: string) {
   const [items, setItems] = useState<AppNotification[]>([]);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
-  const storageKey = `notif_read_${guardianId}`;
+  const readKey    = `notif_read_${guardianId}`;
+  const dismissKey = `notif_dismissed_${guardianId}`;
 
-  const loadReadIds = useCallback(async () => {
+  const loadStored = useCallback(async () => {
     try {
-      const raw = await AsyncStorage.getItem(storageKey);
-      if (raw) setReadIds(new Set(JSON.parse(raw) as string[]));
+      const [rawRead, rawDismiss] = await Promise.all([
+        AsyncStorage.getItem(readKey),
+        AsyncStorage.getItem(dismissKey),
+      ]);
+      if (rawRead)    setReadIds(new Set(JSON.parse(rawRead) as string[]));
+      if (rawDismiss) setDismissedIds(new Set(JSON.parse(rawDismiss) as string[]));
     } catch {}
-  }, [storageKey]);
+  }, [readKey, dismissKey]);
 
   const refresh = useCallback(async () => {
     if (!guardianId) return;
@@ -77,7 +83,6 @@ export function useNotifications(guardianId: string) {
           .limit(childIds.length * 5),
       ]);
 
-      // Negative streak alerts
       const alertItems: AppNotification[] = [];
       children.forEach(child => {
         const recent = (allRecent ?? [])
@@ -127,17 +132,37 @@ export function useNotifications(guardianId: string) {
   const markAllRead = useCallback(async () => {
     const ids = items.map(n => n.id);
     setReadIds(new Set(ids));
-    try { await AsyncStorage.setItem(storageKey, JSON.stringify(ids)); } catch {}
-  }, [items, storageKey]);
+    try { await AsyncStorage.setItem(readKey, JSON.stringify(ids)); } catch {}
+  }, [items, readKey]);
+
+  const markOneRead = useCallback((id: string) => {
+    setReadIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      AsyncStorage.setItem(readKey, JSON.stringify([...next])).catch(() => {});
+      return next;
+    });
+  }, [readKey]);
+
+  const dismissItem = useCallback((id: string) => {
+    setDismissedIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      AsyncStorage.setItem(dismissKey, JSON.stringify([...next])).catch(() => {});
+      return next;
+    });
+  }, [dismissKey]);
 
   useEffect(() => {
     if (!guardianId) return;
-    loadReadIds();
+    loadStored();
     refresh();
   }, [guardianId]);
 
-  const notifications = items.map(n => ({ ...n, read: readIds.has(n.id) }));
+  const notifications = items
+    .filter(n => !dismissedIds.has(n.id))
+    .map(n => ({ ...n, read: readIds.has(n.id) }));
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  return { notifications, unreadCount, markAllRead, refresh, loading };
+  return { notifications, unreadCount, markAllRead, markOneRead, dismissItem, refresh, loading };
 }

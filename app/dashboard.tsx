@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, ActivityIndicator, Alert, RefreshControl,
-  useWindowDimensions, Modal, TextInput, KeyboardAvoidingView, Platform,
+  Modal, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabaseClient';
@@ -12,10 +12,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { C, EMOTION_COLORS, SHADOW } from '../constants/theme';
 import { ParentShell } from '../components/ParentShell';
 import { EmotionIcon } from '../components/EmotionIcon';
+import { NotificationPanel } from '../components/NotificationPanel';
+import { useNotifications } from '../hooks/useNotifications';
 
-const NAVY = '#1A1F3C';
+const NAVY   = '#1A1F3C';
 const YELLOW = '#FFD93D';
-const RIGHT_W = 272;
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -23,10 +24,13 @@ function formatTime(iso: string) {
 
 
 export default function Dashboard() {
-  const { profile, activeChild, enterChildMode, signOut } = useApp();
+  const { profile, signOut } = useApp();
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  const isWide = width >= 768;
+  const [showNotif, setShowNotif] = useState(false);
+  const {
+    notifications, unreadCount, markAllRead, markOneRead, dismissItem,
+    loading: notifLoading,
+  } = useNotifications(profile?.id ?? '');
 
   const [children, setChildren]           = useState<Patient[]>([]);
   const [lastEmotions, setLastEmotions]   = useState<Record<string, string>>({});
@@ -47,12 +51,9 @@ export default function Dashboard() {
   const [childGender, setChildGender] = useState<'Male' | 'Female' | 'Other' | ''>('');
   const [saving, setSaving]         = useState(false);
 
-  const pendingRoute = useRef<string>('/journal');
-
   useEffect(() => {
-    if (activeChild) router.replace(pendingRoute.current as any);
-    else fetchChildren();
-  }, [activeChild]);
+    fetchChildren();
+  }, []);
 
   async function fetchChildren() {
     setLoading(true);
@@ -238,250 +239,6 @@ export default function Dashboard() {
     </Modal>
   );
 
-  // ─────────────────────────────────────────────────────────
-  // iPAD / WIDE LAYOUT
-  // ─────────────────────────────────────────────────────────
-  if (isWide) {
-    return (
-      <ParentShell>
-        <View style={w.main}>
-
-          {/* Two-column body */}
-          <View style={w.columns}>
-
-            {/* ── Center column ── */}
-            <ScrollView
-              style={w.centerCol}
-              contentContainerStyle={w.centerContent}
-              showsVerticalScrollIndicator={false}
-              refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchChildren(); }} tintColor={NAVY} />
-              }
-            >
-              {/* Hero card */}
-              <View style={w.heroCard}>
-                {/* Left: greeting + today glance */}
-                <View style={{ flex: 1 }}>
-                  <Text style={w.heroTitle}>Hello, {firstName}!</Text>
-                  <Text style={w.heroSub}>
-                    Monitor your children's emotional wellbeing through their drawings.
-                  </Text>
-                  <View style={w.heroGlance}>
-                    <View style={w.heroGlanceChip}>
-                      <Ionicons name="brush-outline" size={13} color={NAVY} style={{ opacity: 0.6 }} />
-                      <Text style={w.heroGlanceNum}>
-                        {Object.values(todayEmotions).reduce((a, b) => a + b, 0) || totalSketches}
-                      </Text>
-                      <Text style={w.heroGlanceLbl}>
-                        {Object.values(todayEmotions).reduce((a, b) => a + b, 0) > 0 ? 'today' : 'total'}
-                      </Text>
-                    </View>
-                    {Object.entries(todayEmotions).sort((a, b) => b[1] - a[1]).slice(0, 1).map(([emotion]) => (
-                      <View key={emotion} style={[w.heroGlanceChip, { backgroundColor: EMOTION_COLORS[emotion]?.card }]}>
-                        <EmotionIcon emotion={emotion} size={13} />
-                        <Text style={[w.heroGlanceLbl, { color: EMOTION_COLORS[emotion]?.text, fontWeight: '700' }]}>
-                          {emotion.charAt(0).toUpperCase() + emotion.slice(1)} today
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-
-                {/* Right: 7-day mini bar chart */}
-                <View style={w.heroChartWrap}>
-                  <Text style={w.heroChartTitle}>This Week</Text>
-                  <View style={w.heroChart}>
-                    {weeklyData.map((day, i) => {
-                      const maxCount = Math.max(...weeklyData.map(d => d.count), 1);
-                      const barH = day.count > 0 ? Math.max(Math.round((day.count / maxCount) * 44), 4) : 0;
-                      const isToday = i === 6;
-                      const barColor = day.topEmotion
-                        ? EMOTION_COLORS[day.topEmotion]?.text ?? NAVY
-                        : 'rgba(26,31,60,0.12)';
-                      return (
-                        <View key={day.date} style={w.heroBarCol}>
-                          <View style={w.heroBarBg}>
-                            <View style={[w.heroBarFill, { height: barH, backgroundColor: barColor }]} />
-                          </View>
-                          <Text style={[w.heroBarLbl, isToday && w.heroBarLblToday]}>
-                            {['M','T','W','T','F','S','T'][i]}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                </View>
-              </View>
-
-              {/* Search bar */}
-              <View style={w.searchBar}>
-                <Ionicons name="search-outline" size={15} color="#A0A0B0" />
-                <TextInput
-                  style={w.searchInput}
-                  placeholder="Search children..."
-                  placeholderTextColor="#A0A0B0"
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                />
-              </View>
-
-              {/* Section header */}
-              <View style={w.sectionRow}>
-                <Text style={w.sectionTitle}>Children Profiles</Text>
-              </View>
-
-              {/* Children list */}
-              {loading ? (
-                <ActivityIndicator size="large" color={NAVY} style={{ marginVertical: 40 }} />
-              ) : filtered.length === 0 ? (
-                <View style={w.emptyState}>
-                  <Ionicons name="person-add-outline" size={38} color={NAVY} style={{ opacity: 0.2, marginBottom: 10 }} />
-                  <Text style={w.emptyTitle}>{searchQuery ? 'No results found' : 'No children yet'}</Text>
-                  <Text style={w.emptyDesc}>{searchQuery ? 'Try a different name.' : 'Add your first child to get started.'}</Text>
-                </View>
-              ) : (
-                <View style={w.childList}>
-                  {filtered.map((child, index) => {
-                    const lastEmotion = lastEmotions[child.id];
-                    const ec = lastEmotion ? EMOTION_COLORS[lastEmotion] : null;
-                    return (
-                      <View key={child.id} style={w.childCard}>
-                        <Text style={w.childRank}>{String(index + 1).padStart(2, '0')}</Text>
-                        <View style={w.childAvatar}>
-                          <Text style={w.childAvatarText}>{child.full_name.charAt(0).toUpperCase()}</Text>
-                        </View>
-                        <View style={w.childInfo}>
-                          <Text style={w.childName}>{child.full_name}</Text>
-                          <Text style={w.childMeta}>
-                            {child.age} y/o · {child.gender}
-                            {child.therapist_id && therapistNames[child.therapist_id]
-                              ? `  ·  by ${therapistNames[child.therapist_id]}`
-                              : ''}
-                          </Text>
-                          {(emotionHistory[child.id]?.length ?? 0) > 0 && (
-                            <View style={w.historyRow}>
-                              {emotionHistory[child.id].map((e, i) => (
-                                <View key={i} style={[w.historyDot, { backgroundColor: EMOTION_COLORS[e]?.card ?? '#F0F0F5' }]}>
-                                  <EmotionIcon emotion={e} size={9} />
-                                </View>
-                              ))}
-                            </View>
-                          )}
-                        </View>
-                        <View style={w.childRight}>
-                          {ec && lastEmotion ? (
-                            <View style={[w.emotionPill, { backgroundColor: ec.card }]}>
-                              <EmotionIcon emotion={lastEmotion} size={13} />
-                              <Text style={[w.emotionPillText, { color: ec.text }]}>
-                                {lastEmotion.charAt(0).toUpperCase() + lastEmotion.slice(1)}
-                              </Text>
-                            </View>
-                          ) : null}
-                          <View style={w.sketchRow}>
-                            <Ionicons name="brush-outline" size={11} color="#A0A0B0" />
-                            <Text style={w.sketchText}>{child.total_sketches ?? 0} sketches</Text>
-                            {negativeStreaks[child.id] && (
-                              <>
-                                <Ionicons name="alert-circle" size={11} color="#e76f51" />
-                                <Text style={[w.sketchText, { color: '#e76f51' }]}>alert</Text>
-                              </>
-                            )}
-                          </View>
-                        </View>
-                        <TouchableOpacity
-                          style={w.viewBtn}
-                          onPress={() => { pendingRoute.current = '/journal'; enterChildMode(child); }}
-                        >
-                          <Text style={w.viewBtnText}>view activity</Text>
-                          <Ionicons name="chevron-forward" size={12} color={NAVY} />
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-
-              {/* Add child */}
-              <TouchableOpacity style={w.addBtn} onPress={openAddModal}>
-                <Ionicons name="add" size={17} color={NAVY} />
-                <Text style={w.addBtnText}>Add Child</Text>
-              </TouchableOpacity>
-
-              <Text style={w.hint}>Pull down to refresh</Text>
-            </ScrollView>
-
-            {/* ── Right panel ── */}
-            <View style={w.rightPanel}>
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 18, gap: 12 }}>
-
-                {/* Stat cards */}
-                {[
-                  { bg: '#D0F5F5', iconBg: '#38BFBF', icon: 'people',       num: children.length,  lbl: 'Total Children'  },
-                  { bg: '#E4DCFF', iconBg: '#8B72E8', icon: 'brush',         num: totalSketches,    lbl: 'Recent Sketches' },
-                  { bg: '#FFD9EB', iconBg: '#F06EA0', icon: 'happy-outline', num: happyCount,       lbl: 'Happy Today'     },
-                ].map(card => (
-                  <View key={card.lbl} style={[w.statCard, { backgroundColor: card.bg }]}>
-                    <View style={[w.statIconBox, { backgroundColor: card.iconBg }]}>
-                      <Ionicons name={card.icon as any} size={16} color="#fff" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={w.statNum}>{String(card.num).padStart(2, '0')}</Text>
-                      <Text style={w.statLbl}>{card.lbl}</Text>
-                    </View>
-                  </View>
-                ))}
-
-                {/* Week calendar */}
-                <View style={w.calCard}>
-                  <Text style={w.calTitle}>Emotional Review</Text>
-                  <Text style={w.calSub}>Calendar</Text>
-                  <View style={w.weekRow}>
-                    {weekDates.map((date, i) => {
-                      const active  = weekSketchDates.has(date);
-                      const isToday = date === today.toISOString().slice(0, 10);
-                      return (
-                        <View key={i} style={w.weekCol}>
-                          <Text style={[w.weekLabel, isToday && w.weekLabelToday]}>{DOW[i]}</Text>
-                          <View style={[w.weekDot, isToday && w.weekDotToday, active && w.weekDotActive]}>
-                            {active && <View style={w.weekDotFill} />}
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </View>
-                </View>
-
-                {/* Activity log */}
-                {recentActivity.length > 0 && (
-                  <View style={w.actCard}>
-                    <Text style={w.actTitle}>Recent Activity</Text>
-                    {recentActivity.slice(0, 5).map((item, i) => (
-                      <View key={i} style={w.actRow}>
-                        <Text style={w.actTime}>{formatTime(item.created_at)}</Text>
-                        <View style={w.actDot} />
-                        <Text style={w.actText} numberOfLines={1}>
-                          <Text style={{ fontWeight: '700' }}>{item.childName}</Text>
-                          {' — '}{item.emotion} status recorded
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-              </ScrollView>
-            </View>
-
-          </View>
-
-        </View>
-        {addChildModal}
-      </ParentShell>
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────
-  // PHONE LAYOUT
-  // ─────────────────────────────────────────────────────────
   return (
     <ParentShell>
     <View style={s.root}>
@@ -495,8 +252,16 @@ export default function Dashboard() {
           <Text style={s.logoText}>EmotiSketch</Text>
         </View>
         <View style={s.topBarRight}>
-          <TouchableOpacity style={s.iconBtn} onPress={handleSignOut}>
-            <Ionicons name="log-out-outline" size={19} color="rgba(255,255,255,0.75)" />
+          <TouchableOpacity style={s.iconBtn} onPress={() => router.push('/messages')}>
+            <Ionicons name="paper-plane-outline" size={19} color="rgba(255,255,255,0.75)" />
+          </TouchableOpacity>
+          <TouchableOpacity style={s.iconBtn} onPress={() => setShowNotif(v => !v)}>
+            <Ionicons name="notifications-outline" size={19} color="rgba(255,255,255,0.75)" />
+            {unreadCount > 0 && (
+              <View style={s.notifBadge}>
+                <Text style={s.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
           <View style={s.avatarCircle}>
             <Text style={s.avatarLetter}>{firstName.charAt(0).toUpperCase()}</Text>
@@ -610,17 +375,17 @@ export default function Dashboard() {
 
                   <View style={s.cardActions}>
                     <TouchableOpacity style={s.journalBtn}
-                      onPress={() => { pendingRoute.current = '/journal'; enterChildMode(child); }}>
+                      onPress={() => router.push({ pathname: '/journal', params: { patientId: child.id, patientName: child.full_name } })}>
                       <Ionicons name="book-outline" size={13} color={NAVY} />
                       <Text style={s.journalBtnText}>Journal</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={s.dashboardBtn}
-                      onPress={() => router.push({ pathname: '/parent-dashboard', params: { patientId: child.id, patientName: child.full_name } })}>
+                      onPress={() => router.push({ pathname: '/child-profile/[id]', params: { id: child.id } })}>
                       <Ionicons name="bar-chart-outline" size={13} color={NAVY} />
                       <Text style={s.dashboardBtnText}>Dashboard</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={s.drawBtn}
-                      onPress={() => { pendingRoute.current = '/journal'; enterChildMode(child); }}>
+                      onPress={() => router.push({ pathname: '/draw', params: { patientId: child.id, patientName: child.full_name } })}>
                       <Ionicons name="brush-outline" size={13} color={C.white} />
                       <Text style={s.drawBtnText}>Draw Now</Text>
                     </TouchableOpacity>
@@ -635,6 +400,18 @@ export default function Dashboard() {
       </ScrollView>
 
       {addChildModal}
+
+      {showNotif && (
+        <NotificationPanel
+          notifications={notifications}
+          loading={notifLoading}
+          unreadCount={unreadCount}
+          onMarkAllRead={markAllRead}
+          onMarkRead={markOneRead}
+          onDismiss={dismissItem}
+          onClose={() => setShowNotif(false)}
+        />
+      )}
     </View>
     </ParentShell>
   );
@@ -657,6 +434,8 @@ const s = StyleSheet.create({
   logoText:    { fontSize: 17, fontWeight: '800', color: '#fff' },
   topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   iconBtn:     { width: 34, height: 34, borderRadius: 9, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
+  notifBadge:  { position: 'absolute', top: -3, right: -3, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#F06EA0', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3 },
+  notifBadgeText: { fontSize: 9, fontWeight: '800', color: '#fff' },
   avatarCircle:{ width: 34, height: 34, borderRadius: 17, backgroundColor: YELLOW, justifyContent: 'center', alignItems: 'center' },
   avatarLetter:{ fontSize: 14, fontWeight: '800', color: NAVY },
 
@@ -736,120 +515,4 @@ const s = StyleSheet.create({
   cancelBtnText: { fontSize: 14, fontWeight: '600', color: C.textSub },
   saveBtn:       { flex: 2, paddingVertical: 13, borderRadius: 11, backgroundColor: NAVY, alignItems: 'center' },
   saveBtnText:   { fontSize: 14, fontWeight: '700', color: C.white },
-});
-
-// ─────────────────────────────────────────────────────────
-// iPAD / WIDE STYLES
-// ─────────────────────────────────────────────────────────
-const w = StyleSheet.create({
-
-  // Main window
-  main: { flex: 1, backgroundColor: '#F4F5FA' },
-
-  // Search bar (above children list)
-  searchBar:   { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.white, borderRadius: 11, paddingHorizontal: 14, paddingVertical: 11, marginBottom: 16, ...SHADOW.sm },
-  searchInput: { flex: 1, fontSize: 14, color: NAVY },
-
-  // Columns
-  columns:    { flex: 1, flexDirection: 'row' },
-  centerCol:  { flex: 1, borderRightWidth: 1, borderRightColor: '#EBEBEB' },
-  centerContent: { padding: 22, paddingBottom: 40, gap: 0 },
-
-  // Hero card
-  heroCard:  { backgroundColor: YELLOW, borderRadius: 18, padding: 22, flexDirection: 'row', alignItems: 'center', marginBottom: 22, overflow: 'hidden' },
-  heroTitle: { fontSize: 24, fontWeight: '900', color: NAVY, marginBottom: 6 },
-  heroSub:   { fontSize: 13, color: NAVY, opacity: 0.6, lineHeight: 20, fontWeight: '500' },
-
-  sectionRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: NAVY },
-
-  emptyState: { alignItems: 'center', paddingVertical: 48 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: NAVY, marginBottom: 5 },
-  emptyDesc:  { fontSize: 13, color: C.textSub, textAlign: 'center' },
-
-  childList: { gap: 10, marginBottom: 18 },
-  childCard: {
-    backgroundColor: C.white, borderRadius: 14, padding: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 0,
-    ...SHADOW.sm,
-  },
-  childRank:       { fontSize: 20, fontWeight: '900', color: NAVY, opacity: 0.12, width: 36 },
-  childAvatar:     { width: 44, height: 44, borderRadius: 13, backgroundColor: '#EDEDF8', justifyContent: 'center', alignItems: 'center', marginRight: 14 },
-  childAvatarText: { fontSize: 17, fontWeight: '800', color: NAVY },
-  childInfo:       { flex: 1 },
-  childName:       { fontSize: 15, fontWeight: '800', color: NAVY, marginBottom: 3 },
-  childMeta:       { fontSize: 12, color: C.textSub },
-  childRight:      { alignItems: 'flex-end', gap: 5, marginRight: 14 },
-  emotionPill:     { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  emotionPillText: { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
-  sketchRow:       { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  sketchText:      { fontSize: 11, color: C.textMuted },
-  viewBtn:         { flexDirection: 'row', alignItems: 'center', gap: 3, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 9, borderWidth: 1.5, borderColor: '#E8E8F0', backgroundColor: '#FAFAFA' },
-  viewBtnText:     { fontSize: 12, fontWeight: '700', color: NAVY },
-
-  addBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 13, borderRadius: 13, borderWidth: 1.5, borderColor: NAVY, backgroundColor: 'transparent', marginBottom: 8 },
-  addBtnText:{ fontSize: 13, fontWeight: '700', color: NAVY },
-  hint:      { textAlign: 'center', fontSize: 11, color: C.textMuted, marginTop: 10 },
-
-  // Right panel
-  rightPanel: { width: RIGHT_W, backgroundColor: C.white },
-  statCard:   { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, padding: 14 },
-  statIconBox:{ width: 36, height: 36, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
-  statNum:    { fontSize: 24, fontWeight: '900', color: NAVY },
-  statLbl:    { fontSize: 11, fontWeight: '600', color: NAVY, opacity: 0.5 },
-
-  calCard:    { backgroundColor: '#F8F8FC', borderRadius: 14, padding: 14 },
-  calTitle:   { fontSize: 14, fontWeight: '800', color: NAVY, marginBottom: 1 },
-  calSub:     { fontSize: 11, color: C.textMuted, marginBottom: 14 },
-  weekRow:    { flexDirection: 'row', justifyContent: 'space-between' },
-  weekCol:    { alignItems: 'center', gap: 5 },
-  weekLabel:  { fontSize: 10, fontWeight: '600', color: C.textMuted },
-  weekLabelToday: { color: NAVY, fontWeight: '800' },
-  weekDot:    { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: '#E8E8F0', backgroundColor: '#F0F0F5', justifyContent: 'center', alignItems: 'center' },
-  weekDotToday: { borderColor: NAVY },
-  weekDotActive:{ borderColor: C.primary, backgroundColor: C.primary + '15' },
-  weekDotFill:  { width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary },
-
-  actCard:  { backgroundColor: '#F8F8FC', borderRadius: 14, padding: 14 },
-  actTitle: { fontSize: 14, fontWeight: '800', color: NAVY, marginBottom: 12 },
-  actRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  actTime:  { fontSize: 11, fontWeight: '700', color: C.textMuted, width: 38 },
-  actDot:   { width: 6, height: 6, borderRadius: 3, backgroundColor: C.primary },
-  actText:  { flex: 1, fontSize: 12, color: NAVY },
-
-  bellBadge: {
-    position: 'absolute', top: -4, right: -4,
-    backgroundColor: C.primary, borderRadius: 8,
-    minWidth: 16, height: 16, justifyContent: 'center', alignItems: 'center',
-    paddingHorizontal: 3, borderWidth: 1.5, borderColor: '#fff',
-  },
-  bellBadgeText: { fontSize: 9, fontWeight: '800', color: '#fff' },
-
-  // Hero card — glance pills
-  heroGlance:    { flexDirection: 'row', gap: 8, marginTop: 14, flexWrap: 'wrap' },
-  heroGlanceChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(26,31,60,0.08)',
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20,
-  },
-  heroGlanceNum: { fontSize: 14, fontWeight: '900', color: NAVY },
-  heroGlanceLbl: { fontSize: 11, fontWeight: '600', color: NAVY, opacity: 0.7 },
-
-  // Hero card — week chart
-  heroChartWrap: { alignItems: 'center', justifyContent: 'flex-end', paddingLeft: 16 },
-  heroChartTitle:{ fontSize: 10, fontWeight: '700', color: NAVY, opacity: 0.45, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
-  heroChart:     { flexDirection: 'row', alignItems: 'flex-end', gap: 5 },
-  heroBarCol:    { alignItems: 'center', gap: 4 },
-  heroBarBg:     { width: 18, height: 44, justifyContent: 'flex-end', borderRadius: 6, backgroundColor: 'rgba(26,31,60,0.06)' },
-  heroBarFill:   { width: 18, borderRadius: 6 },
-  heroBarLbl:    { fontSize: 9, fontWeight: '600', color: NAVY, opacity: 0.4 },
-  heroBarLblToday: { opacity: 1, fontWeight: '800' },
-
-  // Child card — emotion history
-  historyRow: { flexDirection: 'row', gap: 4, marginTop: 5 },
-  historyDot: {
-    width: 20, height: 20, borderRadius: 6,
-    justifyContent: 'center', alignItems: 'center',
-  },
-
 });

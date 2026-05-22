@@ -2,28 +2,26 @@ import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
-  ScrollView, useWindowDimensions,
+  ScrollView, StatusBar,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabaseClient';
-import { C, MAX_W } from '../constants/theme';
 
 const NAVY = '#1A1F3C';
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  const isWide = width >= 768;
-
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
-    if (!fullName.trim()) {
-      Alert.alert('Missing field', 'Please enter your full name.');
+    if (!firstName.trim()) {
+      Alert.alert('Missing field', 'Please enter your first name.');
       return;
     }
     if (!email.trim()) {
@@ -34,17 +32,14 @@ export default function RegisterScreen() {
       Alert.alert('Weak password', 'Password must be at least 6 characters.');
       return;
     }
-    if (password !== confirmPassword) {
-      Alert.alert('Password mismatch', 'Passwords do not match.');
-      return;
-    }
 
     setLoading(true);
     try {
+      const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
-        options: { data: { full_name: fullName.trim(), role: 'parent' } },
+        options: { data: { full_name: fullName, role: 'parent' } },
       });
 
       if (error) throw error;
@@ -54,13 +49,12 @@ export default function RegisterScreen() {
 
       const { error: profileError } = await supabase.from('profiles').insert({
         id: userId,
-        full_name: fullName.trim(),
+        full_name: fullName,
         role: 'parent',
       });
 
       if (profileError) throw profileError;
 
-      // If session exists, email confirmation is off — go straight in
       if (data.session) {
         router.replace('/');
       } else {
@@ -79,257 +73,172 @@ export default function RegisterScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.root}
+      style={s.root}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-      >
-        {isWide ? (
-          <View style={styles.splitContainer}>
-            <View style={styles.brandPanel}>
-              <View style={styles.brandLogoCircle}>
-                <Text style={styles.brandLogoText}>ES</Text>
-              </View>
-              <Text style={styles.brandTitle}>EmotiSketch</Text>
-              <Text style={styles.brandSubtitle}>
-                Helping children express{'\n'}their feelings through art
-              </Text>
+      <StatusBar barStyle="dark-content" backgroundColor="#F7F7F5" />
+      <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
+
+        {/* Floating card */}
+        <View style={s.card}>
+          <Text style={s.title}>Create an{'\n'}account</Text>
+
+          {/* Google */}
+          <TouchableOpacity style={s.googleBtn} activeOpacity={0.8}>
+            <Ionicons name="logo-google" size={18} color="#4285F4" />
+            <Text style={s.googleBtnText}>Sign in with Google</Text>
+          </TouchableOpacity>
+
+          {/* Divider */}
+          <View style={s.divider}>
+            <View style={s.dividerLine} />
+            <Text style={s.dividerText}>or</Text>
+            <View style={s.dividerLine} />
+          </View>
+
+          {/* First + Last name row */}
+          <View style={s.nameRow}>
+            <View style={[s.field, { flex: 1 }]}>
+              <TextInput
+                style={s.input}
+                value={firstName}
+                onChangeText={setFirstName}
+                placeholder="First Name"
+                placeholderTextColor="#9ca3af"
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
             </View>
-            <View style={styles.formPanel}>
-              <FormContent
-                fullName={fullName} setFullName={setFullName}
-                email={email} setEmail={setEmail}
-                password={password} setPassword={setPassword}
-                confirmPassword={confirmPassword} setConfirmPassword={setConfirmPassword}
-                                loading={loading}
-                onRegister={handleRegister}
-                onLogin={() => router.replace('/login')}
+            <View style={[s.field, { flex: 1 }]}>
+              <TextInput
+                style={s.input}
+                value={lastName}
+                onChangeText={setLastName}
+                placeholder="Last Name"
+                placeholderTextColor="#9ca3af"
+                autoCapitalize="words"
+                autoCorrect={false}
               />
             </View>
           </View>
-        ) : (
-          <View style={styles.centeredContainer}>
-            <View style={styles.cardHeader}>
-              <View style={styles.brandLogoCircleSmall}>
-                <Text style={styles.brandLogoTextSmall}>ES</Text>
-              </View>
-              <Text style={styles.cardHeaderTitle}>EmotiSketch</Text>
-            </View>
-            <FormContent
-              fullName={fullName} setFullName={setFullName}
-              email={email} setEmail={setEmail}
-              password={password} setPassword={setPassword}
-              confirmPassword={confirmPassword} setConfirmPassword={setConfirmPassword}
-                            loading={loading}
-              onRegister={handleRegister}
-              onLogin={() => router.replace('/login')}
+
+          {/* Email */}
+          <View style={s.field}>
+            <TextInput
+              style={s.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Email"
+              placeholderTextColor="#9ca3af"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
-        )}
+
+          {/* Password */}
+          <View style={s.field}>
+            <TextInput
+              style={[s.input, { flex: 1 }]}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Password"
+              placeholderTextColor="#9ca3af"
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity onPress={() => setShowPassword(v => !v)}>
+              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#9ca3af" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Create account button */}
+          <TouchableOpacity
+            style={[s.createBtn, loading && { opacity: 0.7 }]}
+            onPress={handleRegister}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading
+              ? <ActivityIndicator color="#fff" />
+              : <Text style={s.createBtnText}>Create account</Text>}
+          </TouchableOpacity>
+
+          {/* Terms */}
+          <Text style={s.terms}>
+            By creating an account you agree to our{' '}
+            <Text style={s.termsLink}>Privacy Policy</Text>
+            {' '}and{' '}
+            <Text style={s.termsLink}>Terms of Service</Text>.
+          </Text>
+
+          {/* Login link */}
+          <View style={s.loginRow}>
+            <Text style={s.loginText}>Have an account? </Text>
+            <TouchableOpacity onPress={() => router.replace('/login')}>
+              <Text style={s.loginLink}>Log in here</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-function FormContent({
-  fullName, setFullName,
-  email, setEmail,
-  password, setPassword,
-  confirmPassword, setConfirmPassword,
-  loading, onRegister, onLogin,
-}: {
-  fullName: string; setFullName: (v: string) => void;
-  email: string; setEmail: (v: string) => void;
-  password: string; setPassword: (v: string) => void;
-  confirmPassword: string; setConfirmPassword: (v: string) => void;
-  loading: boolean; onRegister: () => void; onLogin: () => void;
-}) {
-  return (
-    <View style={form.container}>
-      <Text style={form.title}>Create account</Text>
-      <Text style={form.subtitle}>Register as a parent</Text>
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#F7F7F5' },
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 48 },
 
-      {/* Full name */}
-      <View style={form.fieldGroup}>
-        <Text style={form.label}>FULL NAME</Text>
-        <TextInput
-          style={form.input}
-          value={fullName}
-          onChangeText={setFullName}
-          autoCapitalize="words"
-          autoCorrect={false}
-          placeholder="Your full name"
-          placeholderTextColor={C.textMuted}
-        />
-      </View>
-
-      {/* Email */}
-      <View style={[form.fieldGroup, { marginTop: 14 }]}>
-        <Text style={form.label}>EMAIL</Text>
-        <TextInput
-          style={form.input}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholder="you@example.com"
-          placeholderTextColor={C.textMuted}
-        />
-      </View>
-
-      {/* Password */}
-      <View style={[form.fieldGroup, { marginTop: 14 }]}>
-        <Text style={form.label}>PASSWORD</Text>
-        <TextInput
-          style={form.input}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoCapitalize="none"
-          placeholder="Min. 6 characters"
-          placeholderTextColor={C.textMuted}
-        />
-      </View>
-
-      {/* Confirm password */}
-      <View style={[form.fieldGroup, { marginTop: 14 }]}>
-        <Text style={form.label}>CONFIRM PASSWORD</Text>
-        <TextInput
-          style={form.input}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-          autoCapitalize="none"
-          placeholder="Re-enter password"
-          placeholderTextColor={C.textMuted}
-        />
-      </View>
-
-      <TouchableOpacity
-        style={[form.registerBtn, loading && form.registerBtnDisabled]}
-        onPress={onRegister}
-        disabled={loading}
-        activeOpacity={0.85}
-      >
-        {loading
-          ? <ActivityIndicator color={C.white} />
-          : <Text style={form.registerBtnText}>Create account</Text>}
-      </TouchableOpacity>
-
-      <View style={form.loginRow}>
-        <Text style={form.loginText}>Already have an account? </Text>
-        <TouchableOpacity onPress={onLogin}>
-          <Text style={form.link}>Sign in</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.base },
-  scroll: { flexGrow: 1, justifyContent: 'center' },
-
-  splitContainer: {
-    flexDirection: 'row',
-    minHeight: 500,
-    maxWidth: MAX_W,
-    width: '90%',
-    alignSelf: 'center',
+  card: {
+    backgroundColor: '#fff',
     borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: C.border,
-    backgroundColor: C.white,
-    marginVertical: 40,
-  },
-  brandPanel: {
-    width: '40%',
-    backgroundColor: NAVY,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-  },
-  brandLogoCircle: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 20,
-  },
-  brandLogoText: { fontSize: 26, fontWeight: '800', color: C.white },
-  brandTitle: { fontSize: 26, fontWeight: '800', color: C.white, marginBottom: 12 },
-  brandSubtitle: {
-    fontSize: 15, color: 'rgba(255,255,255,0.85)',
-    textAlign: 'center', lineHeight: 22,
-  },
-  formPanel: {
-    flex: 1,
-    backgroundColor: C.white,
-    justifyContent: 'center',
+    padding: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.10,
+    shadowRadius: 24,
+    elevation: 8,
   },
 
-  centeredContainer: {
-    width: '90%',
-    maxWidth: 480,
-    alignSelf: 'center',
-    backgroundColor: C.white,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: C.border,
-    overflow: 'hidden',
-    marginVertical: 40,
-  },
-  cardHeader: {
-    backgroundColor: NAVY,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingVertical: 28,
-  },
-  brandLogoCircleSmall: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  brandLogoTextSmall: { fontSize: 17, fontWeight: '800', color: C.white },
-  cardHeaderTitle: { fontSize: 22, fontWeight: '800', color: C.white },
-});
+  title: { fontSize: 32, fontWeight: '800', color: NAVY, lineHeight: 38, marginBottom: 24 },
 
-const form = StyleSheet.create({
-  container: { padding: 36 },
-  title: { fontSize: 26, fontWeight: '700', color: C.text, marginBottom: 4 },
-  subtitle: { fontSize: 15, color: C.textSub, marginBottom: 24 },
-
-  fieldGroup: {
-    backgroundColor: C.base,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
+  googleBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 10, borderWidth: 1.5, borderColor: '#e5e7eb',
+    borderRadius: 12, paddingVertical: 14,
+    backgroundColor: '#fff', marginBottom: 20,
   },
-  label: {
-    fontSize: 11, fontWeight: '700', color: C.textMuted,
-    letterSpacing: 1, marginBottom: 5,
-  },
-  input: { fontSize: 16, color: C.text, padding: 0, margin: 0 },
+  googleBtnText: { fontSize: 15, fontWeight: '600', color: NAVY },
 
-  registerBtn: {
-    backgroundColor: C.primary, borderRadius: 12,
-    paddingVertical: 16, alignItems: 'center', marginTop: 22,
-  },
-  registerBtnDisabled: { opacity: 0.7 },
-  registerBtnText: { color: C.white, fontSize: 16, fontWeight: '700' },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#e5e7eb' },
+  dividerText: { fontSize: 14, color: '#9ca3af' },
 
-  loginRow: {
+  nameRow: { flexDirection: 'row', gap: 10, marginBottom: 0 },
+
+  field: {
     flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', marginTop: 24,
+    borderWidth: 1.5, borderColor: '#e5e7eb', borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 13,
+    marginBottom: 12, backgroundColor: '#fafafa',
   },
-  loginText: { fontSize: 15, color: C.textSub },
-  link: { fontSize: 15, color: C.primary, fontWeight: '500' },
+  input: { flex: 1, fontSize: 15, color: NAVY, padding: 0 },
+
+  createBtn: {
+    backgroundColor: '#111', borderRadius: 12,
+    paddingVertical: 16, alignItems: 'center',
+    marginTop: 4, marginBottom: 16,
+  },
+  createBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+  terms: {
+    fontSize: 12, color: '#9ca3af',
+    textAlign: 'center', lineHeight: 18, marginBottom: 18,
+  },
+  termsLink: { color: NAVY, fontWeight: '600' },
+
+  loginRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  loginText: { fontSize: 14, color: '#6b7280' },
+  loginLink: { fontSize: 14, color: NAVY, fontWeight: '700' },
 });

@@ -176,8 +176,8 @@ export default function TherapistHome() {
                   <TouchableOpacity
                     style={styles.viewBtn}
                     onPress={() => router.push({
-                      pathname: '/parent-dashboard',
-                      params: { patientId: patient.id, patientName: patient.full_name },
+                      pathname: '/child-profile/[id]',
+                      params: { id: patient.id },
                     })}
                     activeOpacity={0.85}
                   >

@@ -56,11 +56,10 @@ function EmotionBar({ emotion, pct, isTop }: { emotion: string; pct: number; isT
 export default function SketchDetailScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const { profile, activeChild } = useApp();
+  const { profile } = useApp();
   const { sketchId } = useLocalSearchParams<{ sketchId: string; editable: string }>();
   const isTherapist = profile?.role === 'therapist';
-  const isChildView = !!activeChild;
-  const isParentView = !isTherapist && !isChildView;
+  const isParentView = !isTherapist;
 
   const [sketch, setSketch] = useState<Sketch | null>(null);
   const [loading, setLoading] = useState(true);
@@ -151,7 +150,7 @@ export default function SketchDetailScreen() {
     <View style={styles.root}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={[styles.headerInner, width >= 768 && { maxWidth: MAX_W }]}>
+        <View style={[styles.headerInner, false]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="chevron-back" size={22} color={C.white} />
             <Text style={styles.backText}>Back</Text>
@@ -161,7 +160,7 @@ export default function SketchDetailScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.content, width >= 768 && styles.contentWide]}>
+      <ScrollView contentContainerStyle={[styles.content, false]}>
 
         {/* Drawing image */}
         <View style={styles.imageCard}>
@@ -260,49 +259,30 @@ export default function SketchDetailScreen() {
         ) : null}
 
         {/* Therapist note */}
-        {isChildView ? (
-          /* Child view — warm, read-only card */
-          sketch.therapist_notes ? (
-            <View style={styles.childTherapistCard}>
-              <View style={styles.childTherapistHeader}>
-                <View style={styles.childTherapistIconCircle}>
-                  <Ionicons name="heart" size={15} color={C.primary} />
+        {(isTherapist || sketch.therapist_notes) ? (
+          <View style={styles.therapistNoteCard}>
+            <View style={styles.noteHeader}>
+              <View style={styles.noteTitleRow}>
+                <View style={styles.therapistNoteIconCircle}>
+                  <Ionicons name="person-circle" size={14} color="#0d9488" />
                 </View>
-                <View>
-                  <Text style={styles.childTherapistLabel}>From Your Therapist</Text>
-                  <Text style={styles.childTherapistTitle}>A Note For You</Text>
-                </View>
+                <Text style={styles.therapistNoteTitle}>Therapist's Note</Text>
               </View>
-              <Text style={styles.childTherapistText}>{sketch.therapist_notes}</Text>
-            </View>
-          ) : null
-        ) : (
-          /* Therapist / parent view — editable */
-          (isTherapist || sketch.therapist_notes) ? (
-            <View style={styles.therapistNoteCard}>
-              <View style={styles.noteHeader}>
-                <View style={styles.noteTitleRow}>
-                  <View style={styles.therapistNoteIconCircle}>
-                    <Ionicons name="person-circle" size={14} color="#0d9488" />
-                  </View>
-                  <Text style={styles.therapistNoteTitle}>Therapist's Note</Text>
-                </View>
-                {isTherapist && (
-                  <TouchableOpacity style={styles.editTherapistNoteBtn} onPress={openTherapistNoteEditor}>
-                    <Text style={styles.editTherapistNoteBtnText}>
-                      {sketch.therapist_notes ? 'Edit' : '+ Add Note'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-              {sketch.therapist_notes ? (
-                <Text style={styles.therapistNoteText}>{sketch.therapist_notes}</Text>
-              ) : (
-                <Text style={styles.noteEmpty}>No note added yet. Tap "+ Add Note" to write one.</Text>
+              {isTherapist && (
+                <TouchableOpacity style={styles.editTherapistNoteBtn} onPress={openTherapistNoteEditor}>
+                  <Text style={styles.editTherapistNoteBtnText}>
+                    {sketch.therapist_notes ? 'Edit' : '+ Add Note'}
+                  </Text>
+                </TouchableOpacity>
               )}
             </View>
-          ) : null
-        )}
+            {sketch.therapist_notes ? (
+              <Text style={styles.therapistNoteText}>{sketch.therapist_notes}</Text>
+            ) : (
+              <Text style={styles.noteEmpty}>No note added yet. Tap "+ Add Note" to write one.</Text>
+            )}
+          </View>
+        ) : null}
 
         {/* Parent note */}
         <View style={styles.noteCard}>
@@ -410,8 +390,8 @@ export default function SketchDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FFF8F0' },
-  loadingRoot: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF8F0' },
+  root: { flex: 1, backgroundColor: '#F2F2F7' },
+  loadingRoot: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F2F2F7' },
 
   header: { backgroundColor: NAVY, paddingTop: 52, paddingBottom: 16 },
   headerInner: {
@@ -489,20 +469,6 @@ const styles = StyleSheet.create({
   scoresTitle: { fontSize: 14, fontWeight: '800', color: C.text },
   scoresSub: { fontSize: 11, color: C.textMuted, marginBottom: 10 },
   barsWrap: { gap: 10 },
-
-  childTherapistCard: {
-    backgroundColor: '#FFF0F7', borderRadius: 18,
-    padding: 16, gap: 10, borderWidth: 2, borderColor: '#F9A8C9',
-    ...SHADOW.sm,
-  },
-  childTherapistHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  childTherapistIconCircle: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: C.primaryLight, justifyContent: 'center', alignItems: 'center',
-  },
-  childTherapistLabel: { fontSize: 10, fontWeight: '700', color: C.primary, textTransform: 'uppercase', letterSpacing: 0.8 },
-  childTherapistTitle: { fontSize: 14, fontWeight: '800', color: C.text },
-  childTherapistText: { fontSize: 14, color: '#6b2142', lineHeight: 22 },
 
   therapistNoteCard: {
     backgroundColor: '#f0fdfa', borderRadius: 16,

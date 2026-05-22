@@ -1,95 +1,183 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
-import { C, SHADOW } from '../constants/theme';
-import { useApp } from '../contexts/AppContext';
+import { supabase } from '../lib/supabaseClient';
+import { UploadBottomSheet, SheetPatient } from './UploadBottomSheet';
 
-const NAVY = '#1A1F3C';
+const NAVY        = '#1A1F3C';
+const ACTIVE_BG   = '#E8EAFF';
+const ACTIVE_CLR  = '#4C6EF5';
+const INACTIVE    = '#9CA3AF';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
-const TABS: { label: string; active: IoniconName; inactive: IoniconName; path: string }[] = [
-  { label: 'Children', active: 'people',         inactive: 'people-outline',         path: '/dashboard' },
-  { label: 'Activity', active: 'bar-chart',      inactive: 'bar-chart-outline',      path: '/activity'  },
-  { label: 'Messages', active: 'chatbubble',     inactive: 'chatbubble-outline',     path: '/messages'  },
-  { label: 'Settings', active: 'settings',       inactive: 'settings-outline',       path: '/settings'  },
+const TABS: { icon: IoniconName; activeIcon: IoniconName; path: string; center?: boolean }[] = [
+  { icon: 'home-outline',      activeIcon: 'home',        path: '/dashboard' },
+  { icon: 'bar-chart-outline', activeIcon: 'bar-chart',   path: '/activity'  },
+  { icon: 'pencil-outline',    activeIcon: 'pencil',      path: '__upload',  center: true },
+  { icon: 'calendar-outline',  activeIcon: 'calendar',    path: '/rewards'   },
+  { icon: 'person-outline',    activeIcon: 'person',      path: '/settings'  },
 ];
 
 export function ParentNav() {
-  const router = useRouter();
+  const router   = useRouter();
   const pathname = usePathname();
-  const { unreadMsgCount } = useApp();
+
+  const [patients, setPatients]     = useState<SheetPatient[]>([]);
+  const [sheetOpen, setSheetOpen]   = useState(false);
+
+  // Fetch children once on mount
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('patients')
+        .select('id, full_name')
+        .eq('guardian_id', user.id);
+      setPatients(data ?? []);
+    })();
+  }, []);
+
+  // Navigate to the draw screen for a given child
+  function goToDraw(patient: SheetPatient) {
+    router.push({
+      pathname: '/draw',
+      params: { patientId: patient.id, patientName: patient.full_name },
+    } as any);
+  }
+
+  // ── Center button logic ──────────────────────────────────────────────────────
+  function handleUploadPress() {
+    if (patients.length === 0) {
+      // No children registered yet — go to dashboard to add one
+      router.push('/dashboard');
+      return;
+    }
+
+    if (patients.length === 1) {
+      // ── BYPASS: single child — skip sheet, go straight to draw ──────────────
+      goToDraw(patients[0]);
+      return;
+    }
+
+    // ── MULTI-CHILD: open the "Who is uploading?" sheet ──────────────────────
+    setSheetOpen(true);
+  }
+
+  function handleSelectChild(patient: SheetPatient) {
+    setSheetOpen(false);
+    // Small delay so the sheet dismisses before the navigation transition fires
+    setTimeout(() => goToDraw(patient), 150);
+  }
 
   return (
-    <View style={styles.container}>
-      {TABS.map(tab => {
-        const active = pathname === tab.path;
-        const showBadge = tab.path === '/messages' && unreadMsgCount > 0;
-        return (
-          <TouchableOpacity
-            key={tab.path}
-            style={styles.tab}
-            onPress={() => router.push(tab.path as any)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.pill, active && styles.pillActive]}>
-              <View style={styles.iconWrap}>
-                <Ionicons
-                  name={active ? tab.active : tab.inactive}
-                  size={20}
-                  color={active ? NAVY : C.textMuted}
-                />
-                {showBadge && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>
-                      {unreadMsgCount > 9 ? '9+' : unreadMsgCount}
-                    </Text>
+    <>
+      <View style={s.wrapper}>
+        <View style={s.card}>
+          {TABS.map(tab => {
+            const active = pathname === tab.path ||
+              (tab.path === '/dashboard' && pathname === '/');
+
+            if (tab.center) {
+              return (
+                <TouchableOpacity
+                  key="upload"
+                  style={s.centerBtnWrap}
+                  onPress={handleUploadPress}
+                  activeOpacity={0.85}
+                >
+                  <View style={s.centerBtn}>
+                    <Ionicons name="pencil" size={22} color="#fff" />
                   </View>
-                )}
-              </View>
-              {active && <Text style={styles.pillLabel}>{tab.label}</Text>}
-            </View>
-            {!active && <Text style={styles.inactiveLabel}>{tab.label}</Text>}
-          </TouchableOpacity>
-        );
-      })}
-    </View>
+                </TouchableOpacity>
+              );
+            }
+
+            return (
+              <TouchableOpacity
+                key={tab.path}
+                style={s.tab}
+                onPress={() => router.push(tab.path as any)}
+                activeOpacity={0.7}
+              >
+                <View style={[s.iconWrap, active && s.iconWrapActive]}>
+                  <Ionicons
+                    name={active ? tab.activeIcon : tab.icon}
+                    size={22}
+                    color={active ? ACTIVE_CLR : INACTIVE}
+                  />
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Bottom sheet rendered as a Modal — floats above all screen content */}
+      <UploadBottomSheet
+        visible={sheetOpen}
+        patients={patients}
+        onSelectChild={handleSelectChild}
+        onClose={() => setSheetOpen(false)}
+      />
+    </>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
+const s = StyleSheet.create({
+  wrapper: {
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+    paddingTop: 16,
+    backgroundColor: 'transparent',
+  },
+  card: {
     flexDirection: 'row',
-    backgroundColor: C.white,
-    paddingBottom: 26,
-    paddingTop: 10,
-    paddingHorizontal: 16,
-    ...SHADOW.md,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 32,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.10,
+    shadowRadius: 20,
+    elevation: 10,
   },
   tab: {
-    flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  pill: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingVertical: 8, paddingHorizontal: 14,
-    borderRadius: 20,
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  pillActive: {
-    backgroundColor: 'rgba(26,31,60,0.08)',
+  iconWrapActive: {
+    backgroundColor: ACTIVE_BG,
   },
-  iconWrap: { position: 'relative' },
-  badge: {
-    position: 'absolute', top: -5, right: -8,
-    backgroundColor: NAVY, borderRadius: 8,
-    minWidth: 16, height: 16,
-    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3,
+  centerBtnWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -24,
   },
-  badgeText: { fontSize: 9, fontWeight: '800', color: C.white },
-  pillLabel: {
-    fontSize: 13, fontWeight: '700', color: NAVY,
-  },
-  inactiveLabel: {
-    fontSize: 10, fontWeight: '500', color: C.textMuted,
+  centerBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: NAVY,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: NAVY,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
   },
 });

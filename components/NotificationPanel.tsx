@@ -29,19 +29,17 @@ interface Props {
   loading: boolean;
   unreadCount: number;
   onMarkAllRead: () => void;
+  onMarkRead: (id: string) => void;
+  onDismiss: (id: string) => void;
   onClose: () => void;
 }
 
 export function NotificationPanel({
-  notifications, loading, unreadCount, onMarkAllRead, onClose,
+  notifications, loading, unreadCount, onMarkAllRead, onMarkRead, onDismiss, onClose,
 }: Props) {
   return (
     <>
-      <TouchableOpacity
-        style={s.backdrop}
-        onPress={onClose}
-        activeOpacity={1}
-      />
+      <TouchableOpacity style={s.backdrop} onPress={onClose} activeOpacity={1} />
       <View style={s.panel}>
         <View style={s.header}>
           <Text style={s.title}>Notifications</Text>
@@ -64,7 +62,12 @@ export function NotificationPanel({
             {notifications.map(n => {
               const cfg = TYPE_CFG[n.type];
               return (
-                <View key={n.id} style={[s.item, !n.read && s.itemUnread]}>
+                <TouchableOpacity
+                  key={n.id}
+                  style={[s.item, !n.read && s.itemUnread]}
+                  onPress={() => onMarkRead(n.id)}
+                  activeOpacity={0.75}
+                >
                   <View style={[s.iconBox, { backgroundColor: cfg.bg }]}>
                     <Ionicons name={cfg.icon as any} size={15} color={cfg.color} />
                   </View>
@@ -75,8 +78,17 @@ export function NotificationPanel({
                     <Text style={s.itemBody} numberOfLines={2}>{n.body}</Text>
                     <Text style={s.itemTime}>{timeAgo(n.created_at)}</Text>
                   </View>
-                  {!n.read && <View style={s.dot} />}
-                </View>
+                  <View style={s.rightCol}>
+                    {!n.read && <View style={s.dot} />}
+                    <TouchableOpacity
+                      onPress={() => onDismiss(n.id)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={s.dismissBtn}
+                    >
+                      <Ionicons name="close" size={14} color="#C0C0CC" />
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
               );
             })}
           </ScrollView>
@@ -91,8 +103,8 @@ const s = StyleSheet.create({
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99,
   },
   panel: {
-    position: 'absolute', top: 82, right: 60,
-    width: 340, maxHeight: 460,
+    position: 'absolute', top: 86, right: 16,
+    width: 320, maxHeight: 460,
     backgroundColor: '#fff', borderRadius: 16,
     overflow: 'hidden',
     zIndex: 100,
@@ -128,8 +140,14 @@ const s = StyleSheet.create({
   itemTitleBold: { fontWeight: '700' },
   itemBody: { fontSize: 11, color: '#888', lineHeight: 16 },
   itemTime: { fontSize: 10, color: '#C0C0CC', marginTop: 3, fontWeight: '500' },
+
+  rightCol: { alignItems: 'center', gap: 6, flexShrink: 0, marginTop: 1 },
   dot: {
-    width: 7, height: 7, borderRadius: 4,
-    backgroundColor: C.primary, marginTop: 5, flexShrink: 0,
+    width: 7, height: 7, borderRadius: 4, backgroundColor: C.primary,
+  },
+  dismissBtn: {
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: '#F0F0F5',
+    justifyContent: 'center', alignItems: 'center',
   },
 });

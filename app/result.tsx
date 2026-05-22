@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Animated, Easing, ScrollView, useWindowDimensions,
+  Animated, Easing, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -124,8 +124,8 @@ function EmotionBar({ emotion, pct, isTop }: { emotion: Emotion; pct: number; is
 }
 
 export default function ResultScreen() {
-  const { emotion, scores: scoresParam, preMood, therapistMessage } = useLocalSearchParams<{
-    emotion: string; scores: string; preMood: string; therapistMessage: string;
+  const { emotion, scores: scoresParam, preMood, therapistMessage, patientId, patientName } = useLocalSearchParams<{
+    emotion: string; scores: string; preMood: string; therapistMessage: string; patientId: string; patientName: string;
   }>();
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -161,7 +161,6 @@ export default function ResultScreen() {
       <Animated.View style={[
         styles.inner,
         { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-        width >= 768 && { maxWidth: MAX_W, alignSelf: 'center', width: '100%' },
       ]}>
         {/* Emoji */}
         <View style={styles.emojiWrapper}>
@@ -242,7 +241,7 @@ export default function ResultScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             style={styles.drawAgainBtn}
-            onPress={() => router.replace('/draw')}
+            onPress={() => router.replace({ pathname: '/draw', params: { patientId: patientId ?? '', patientName: patientName ?? '' } })}
             activeOpacity={0.85}
           >
             <Ionicons name="brush-outline" size={18} color={C.text} />
@@ -260,7 +259,7 @@ export default function ResultScreen() {
 
         <TouchableOpacity
           style={styles.journalLink}
-          onPress={() => router.replace('/journal')}
+          onPress={() => router.replace({ pathname: '/journal', params: { patientId: patientId ?? '', patientName: patientName ?? '' } })}
         >
           <Ionicons name="book-outline" size={16} color={C.textSub} />
           <Text style={styles.journalLinkText}>See all my drawings</Text>
