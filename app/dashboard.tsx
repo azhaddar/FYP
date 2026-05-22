@@ -45,11 +45,11 @@ export default function Dashboard() {
   const [todayEmotions, setTodayEmotions]   = useState<Record<string, number>>({});
   const [weeklyData, setWeeklyData]         = useState<{ date: string; count: number; topEmotion: string }[]>([]);
 
-  const [addModal, setAddModal]     = useState(false);
-  const [childName, setChildName]   = useState('');
-  const [childAge, setChildAge]     = useState('');
-  const [childGender, setChildGender] = useState<'Male' | 'Female' | 'Other' | ''>('');
-  const [saving, setSaving]         = useState(false);
+  const [addModal, setAddModal]         = useState(false);
+  const [childName, setChildName]       = useState('');
+  const [childAge, setChildAge]         = useState('');
+  const [childGender, setChildGender]   = useState<'Male' | 'Female' | 'Other' | ''>('');
+  const [saving, setSaving]             = useState(false);
 
   useEffect(() => {
     fetchChildren();
@@ -328,16 +328,23 @@ export default function Dashboard() {
           </View>
         ) : (
           <View style={s.childList}>
-            {children.map((child, index) => {
+            {children.map((child) => {
               const lastEmotion = lastEmotions[child.id];
               const ec = lastEmotion ? EMOTION_COLORS[lastEmotion] : null;
               return (
-                <View key={child.id} style={s.childCard}>
+                <TouchableOpacity
+                  key={child.id}
+                  style={s.childCard}
+                  onPress={() => router.push({ pathname: '/child-profile/[id]', params: { id: child.id } })}
+                  activeOpacity={0.82}
+                >
                   <View style={s.childRow}>
-                    <Text style={s.childRank}>{String(index + 1).padStart(2, '0')}</Text>
+                    {/* Avatar */}
                     <View style={s.childAvatar}>
                       <Text style={s.childAvatarText}>{child.full_name.charAt(0).toUpperCase()}</Text>
                     </View>
+
+                    {/* Name / age / therapist */}
                     <View style={s.childInfo}>
                       <Text style={s.childName}>{child.full_name}</Text>
                       <Text style={s.childMeta}>{child.age} y/o · {child.gender}</Text>
@@ -345,6 +352,8 @@ export default function Dashboard() {
                         <Text style={s.therapistText}>{therapistNames[child.therapist_id]}</Text>
                       )}
                     </View>
+
+                    {/* Emotion badge + sketch count */}
                     <View style={s.childRight}>
                       {ec && lastEmotion ? (
                         <View style={[s.emotionPill, { backgroundColor: ec.card }]}>
@@ -353,7 +362,11 @@ export default function Dashboard() {
                             {lastEmotion.charAt(0).toUpperCase() + lastEmotion.slice(1)}
                           </Text>
                         </View>
-                      ) : <View style={s.emotionPillEmpty}><Text style={s.emotionPillEmptyText}>No data</Text></View>}
+                      ) : (
+                        <View style={s.emotionPillEmpty}>
+                          <Text style={s.emotionPillEmptyText}>No data</Text>
+                        </View>
+                      )}
                       <View style={s.sketchCountRow}>
                         <Ionicons name="brush-outline" size={11} color="#A0A0B0" />
                         <Text style={s.sketchCountText}>{child.total_sketches ?? 0} sketches</Text>
@@ -362,6 +375,9 @@ export default function Dashboard() {
                         )}
                       </View>
                     </View>
+
+                    {/* Navigation affordance */}
+                    <Ionicons name="chevron-forward" size={16} color="#9CA3AF" style={{ marginLeft: 8 }} />
                   </View>
 
                   {negativeStreaks[child.id] && (
@@ -370,27 +386,7 @@ export default function Dashboard() {
                       <Text style={s.alertText}>Negative feelings in last 3 drawings. Consider checking in.</Text>
                     </View>
                   )}
-
-                  <View style={s.divider} />
-
-                  <View style={s.cardActions}>
-                    <TouchableOpacity style={s.journalBtn}
-                      onPress={() => router.push({ pathname: '/journal', params: { patientId: child.id, patientName: child.full_name } })}>
-                      <Ionicons name="book-outline" size={13} color={NAVY} />
-                      <Text style={s.journalBtnText}>Journal</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={s.dashboardBtn}
-                      onPress={() => router.push({ pathname: '/child-profile/[id]', params: { id: child.id } })}>
-                      <Ionicons name="bar-chart-outline" size={13} color={NAVY} />
-                      <Text style={s.dashboardBtnText}>Dashboard</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={s.drawBtn}
-                      onPress={() => router.push({ pathname: '/draw', params: { patientId: child.id, patientName: child.full_name } })}>
-                      <Ionicons name="brush-outline" size={13} color={C.white} />
-                      <Text style={s.drawBtnText}>Draw Now</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -468,9 +464,8 @@ const s = StyleSheet.create({
 
   childList: { gap: 10 },
   childCard: { backgroundColor: C.white, borderRadius: 16, padding: 14, ...SHADOW.sm },
-  childRow:  { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  childRank: { fontSize: 20, fontWeight: '900', color: NAVY, opacity: 0.12, width: 32 },
-  childAvatar:     { width: 42, height: 42, borderRadius: 12, backgroundColor: '#EDEDF8', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  childRow:  { flexDirection: 'row', alignItems: 'center' },
+  childAvatar:     { width: 44, height: 44, borderRadius: 13, backgroundColor: '#EDEDF8', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   childAvatarText: { fontSize: 16, fontWeight: '800', color: NAVY },
   childInfo:       { flex: 1, gap: 1 },
   childName:       { fontSize: 14, fontWeight: '800', color: NAVY },
@@ -484,17 +479,8 @@ const s = StyleSheet.create({
   sketchCountRow:  { flexDirection: 'row', alignItems: 'center', gap: 3 },
   sketchCountText: { fontSize: 10, color: C.textMuted },
 
-  alertBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: '#fef3c7', borderRadius: 9, paddingHorizontal: 9, paddingVertical: 6, marginBottom: 8 },
+  alertBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: '#fef3c7', borderRadius: 9, paddingHorizontal: 9, paddingVertical: 6, marginTop: 10 },
   alertText:   { flex: 1, fontSize: 11, color: '#92400e', lineHeight: 16 },
-  divider:     { height: 1, backgroundColor: '#F0F0F5', marginBottom: 10 },
-
-  cardActions:   { flexDirection: 'row', gap: 7 },
-  journalBtn:    { flex: 1, paddingVertical: 9, borderRadius: 9, borderWidth: 1.5, borderColor: '#E8E8F0', alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 4, backgroundColor: '#FAFAFA' },
-  journalBtnText:{ fontSize: 11, fontWeight: '700', color: NAVY },
-  dashboardBtn:  { flex: 1, paddingVertical: 9, borderRadius: 9, borderWidth: 1.5, borderColor: '#E8E8F0', alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 4, backgroundColor: '#FAFAFA' },
-  dashboardBtnText: { fontSize: 11, fontWeight: '700', color: NAVY },
-  drawBtn:       { flex: 1, paddingVertical: 9, borderRadius: 9, backgroundColor: NAVY, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 4 },
-  drawBtnText:   { fontSize: 11, fontWeight: '700', color: C.white },
 
   hint: { textAlign: 'center', fontSize: 11, color: C.textMuted, marginTop: 18 },
 

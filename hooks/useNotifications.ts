@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabaseClient';
 
-export type NotifType = 'sketch' | 'alert' | 'message';
+export type NotifType = 'sketch' | 'alert' | 'message' | 'status';
 
 export interface AppNotification {
   id: string;
@@ -60,7 +60,7 @@ export function useNotifications(guardianId: string) {
       const [{ data: sketches }, { data: msgs }, { data: allRecent }] = await Promise.all([
         supabase
           .from('sketches')
-          .select('id, patient_id, emotion, created_at')
+          .select('id, patient_id, emotion, created_at, status, reviewed_at, verified_at')
           .in('patient_id', childIds)
           .gte('created_at', since14d)
           .order('created_at', { ascending: false })
@@ -101,15 +101,42 @@ export function useNotifications(guardianId: string) {
         }
       });
 
-      const sketchItems: AppNotification[] = (sketches ?? []).map(s => ({
-        id: `sketch_${s.id}`,
-        type: 'sketch' as const,
-        title: `${nameOf[s.patient_id] ?? 'Your child'} added a new drawing`,
-        body: `Feeling ${s.emotion.charAt(0).toUpperCase() + s.emotion.slice(1)} today`,
-        created_at: s.created_at,
-        read: false,
-        meta: { sketchId: s.id, patientId: s.patient_id },
-      }));
+      // Only show "new drawing" notification for submitted sketches
+      const sketchItems: AppNotification[] = (sketches ?? [])
+        .filter(s => s.status === 'submitted' || !s.status)
+        .map(s => ({
+          id: `sketch_${s.id}`,
+          type: 'sketch' as const,
+          title: `${nameOf[s.patient_id] ?? 'Your child'} added a new drawing`,
+          body: `Feeling ${s.emotion.charAt(0).toUpperCase() + s.emotion.slice(1)} today`,
+          created_at: s.created_at,
+          read: false,
+          meta: { sketchId: s.id, patientId: s.patient_id },
+        }));
+
+      // Status update notifications — use the actual timestamp the status changed
+      const statusItems: AppNotification[] = (sketches ?? [])
+        .filter(s => s.status === 'reviewing' || s.status === 'verified')
+        .map(s => {
+          const child = nameOf[s.patient_id] ?? 'Your child';
+          const isVerified = s.status === 'verified';
+          const statusTimestamp = isVerified
+            ? (s.verified_at ?? s.created_at)
+            : (s.reviewed_at ?? s.created_at);
+          return {
+            id: `${s.status}_${s.id}`,
+            type: 'status' as const,
+            title: isVerified
+              ? `${child}'s drawing has been verified!`
+              : `Therapist is reviewing ${child}'s drawing`,
+            body: isVerified
+              ? 'The therapist has completed their review and verified this session.'
+              : 'Your child\'s drawing is currently being reviewed by the therapist.',
+            created_at: statusTimestamp,
+            read: false,
+            meta: { sketchId: s.id, patientId: s.patient_id },
+          };
+        });
 
       const msgItems: AppNotification[] = (msgs ?? []).map((m: any) => ({
         id: `msg_${m.id}`,
@@ -121,7 +148,7 @@ export function useNotifications(guardianId: string) {
         meta: { senderId: m.sender_id },
       }));
 
-      const all = [...alertItems, ...sketchItems, ...msgItems];
+      const all = [...alertItems, ...statusItems, ...sketchItems, ...msgItems];
       all.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setItems(all);
     } finally {

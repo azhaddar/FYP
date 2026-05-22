@@ -34,7 +34,7 @@ export function ParentNav() {
       if (!user) return;
       const { data } = await supabase
         .from('patients')
-        .select('id, full_name')
+        .select('id, full_name, age, gender')
         .eq('guardian_id', user.id);
       setPatients(data ?? []);
     })();

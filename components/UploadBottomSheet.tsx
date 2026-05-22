@@ -6,10 +6,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { C, EMOTION_COLORS } from '../constants/theme';
 
-const NAVY        = '#1A1F3C';
-const SHEET_H     = 260;
+const NAVY    = '#1A1F3C';
+const SHEET_H = 260;
 
-// ── Avatar palette (same hash as ChildProfileButton) ─────────────────────────
 const PALETTES = [
   { bg: '#EEF0FF', text: NAVY },
   { bg: EMOTION_COLORS.happy.card,   text: EMOTION_COLORS.happy.text   },
@@ -22,23 +21,23 @@ function paletteFor(name: string) {
   return PALETTES[h % PALETTES.length];
 }
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 export interface SheetPatient {
   id:        string;
   full_name: string;
+  age?:      number | null;
+  gender?:   string | null;
   imageUrl?: string | null;
 }
 
 interface Props {
-  visible:        boolean;
-  patients:       SheetPatient[];
-  onSelectChild:  (patient: SheetPatient) => void;
-  onClose:        () => void;
+  visible:       boolean;
+  patients:      SheetPatient[];
+  onSelectChild: (patient: SheetPatient) => void;
+  onClose:       () => void;
 }
 
-// ── ChildAvatarButton ─────────────────────────────────────────────────────────
 function ChildAvatarButton({ patient, onPress }: { patient: SheetPatient; onPress: () => void }) {
-  const palette  = paletteFor(patient.full_name);
+  const palette   = paletteFor(patient.full_name);
   const firstName = patient.full_name.trim().split(/\s+/)[0];
   const initials  = patient.full_name.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
@@ -63,7 +62,6 @@ const av = StyleSheet.create({
   name:    { fontSize: 13, fontWeight: '700', color: NAVY, textAlign: 'center' },
 });
 
-// ── UploadBottomSheet ─────────────────────────────────────────────────────────
 export function UploadBottomSheet({ visible, patients, onSelectChild, onClose }: Props) {
   const slideY = useRef(new Animated.Value(SHEET_H)).current;
   const fadeOp = useRef(new Animated.Value(0)).current;
@@ -84,27 +82,22 @@ export function UploadBottomSheet({ visible, patients, onSelectChild, onClose }:
 
   return (
     <Modal transparent visible={visible} animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      {/* ── Backdrop ──────────────────────────── */}
       <Animated.View style={[s.backdrop, { opacity: fadeOp }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
 
-      {/* ── Sheet ─────────────────────────────── */}
       <Animated.View style={[s.sheet, { transform: [{ translateY: slideY }] }]}>
-        {/* Handle */}
         <View style={s.handle} />
 
-        {/* Header */}
         <View style={s.header}>
-          <Text style={s.title}>Who is uploading?</Text>
+          <Text style={s.title}>Who is drawing?</Text>
           <TouchableOpacity style={s.closeBtn} onPress={onClose} activeOpacity={0.7}>
             <Ionicons name="close" size={18} color={C.textMuted} />
           </TouchableOpacity>
         </View>
 
-        <Text style={s.sub}>Select the child whose drawing you're submitting.</Text>
+        <Text style={s.sub}>Select the child who will draw today.</Text>
 
-        {/* Child avatar grid */}
         <FlatList
           data={patients}
           keyExtractor={p => p.id}
@@ -112,10 +105,7 @@ export function UploadBottomSheet({ visible, patients, onSelectChild, onClose }:
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={s.avatarList}
           renderItem={({ item }) => (
-            <ChildAvatarButton
-              patient={item}
-              onPress={() => onSelectChild(item)}
-            />
+            <ChildAvatarButton patient={item} onPress={() => onSelectChild(item)} />
           )}
         />
       </Animated.View>
@@ -123,13 +113,11 @@ export function UploadBottomSheet({ visible, patients, onSelectChild, onClose }:
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.38)',
   },
-
   sheet: {
     position: 'absolute',
     bottom: 0, left: 0, right: 0,
@@ -143,7 +131,6 @@ const s = StyleSheet.create({
     shadowRadius: 16,
     elevation: 20,
   },
-
   handle: {
     alignSelf: 'center',
     width: 40, height: 4,
@@ -151,14 +138,9 @@ const s = StyleSheet.create({
     backgroundColor: '#E0E0E8',
     marginTop: 12, marginBottom: 4,
   },
-
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 4,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 4,
   },
   title:    { fontSize: 18, fontWeight: '800', color: NAVY },
   closeBtn: {
@@ -166,14 +148,9 @@ const s = StyleSheet.create({
     backgroundColor: C.base,
     justifyContent: 'center', alignItems: 'center',
   },
-
   sub: {
     fontSize: 12, color: C.textMuted, fontWeight: '500',
     paddingHorizontal: 24, marginBottom: 20,
   },
-
-  avatarList: {
-    paddingHorizontal: 24,
-    gap: 16,
-  },
+  avatarList: { paddingHorizontal: 24, gap: 16 },
 });

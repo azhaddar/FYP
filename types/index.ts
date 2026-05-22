@@ -20,6 +20,9 @@ export type Sketch = {
   scores: Record<string, number> | null;
   therapist_message: string | null;
   pre_mood: string | null;
+  status: 'submitted' | 'reviewing' | 'verified';
+  reviewed_at: string | null;
+  verified_at: string | null;
 };
 
 export type Profile = {

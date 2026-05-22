@@ -9,9 +9,10 @@ import { C, SHADOW } from '../constants/theme';
 const NAVY = '#1A1F3C';
 
 const TYPE_CFG = {
-  sketch:  { icon: 'brush',        bg: '#E4DCFF', color: '#8B72E8' },
-  alert:   { icon: 'alert-circle', bg: '#FFE4D6', color: '#E76F51' },
-  message: { icon: 'chatbubble',   bg: '#D0F5F5', color: '#38BFBF' },
+  sketch:  { icon: 'brush',              bg: '#E4DCFF', color: '#8B72E8' },
+  alert:   { icon: 'alert-circle',       bg: '#FFE4D6', color: '#E76F51' },
+  message: { icon: 'chatbubble',         bg: '#D0F5F5', color: '#38BFBF' },
+  status:  { icon: 'checkmark-circle',   bg: '#D1FAE5', color: '#10B981' },
 } as const;
 
 function timeAgo(iso: string) {
