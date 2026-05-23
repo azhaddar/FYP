@@ -1,25 +1,341 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, Modal, TouchableOpacity,
-  ActivityIndicator, Animated,
-} from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../lib/supabaseClient';
-import { useApp } from '../contexts/AppContext';
-import { Patient, Sketch } from '../types';
-import { C, MAX_W } from '../constants/theme';
-import { ParentShell } from '../components/ParentShell';
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Modal,
+  TouchableOpacity,
+  ActivityIndicator,
+  Animated,
+  Image,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { supabase } from "../lib/supabaseClient";
+import { useApp } from "../contexts/AppContext";
+import { Patient, Sketch } from "../types";
+import { C, SHADOW } from "../constants/theme";
+import { ParentShell } from "../components/ParentShell";
 import {
-  BADGES, BadgeDef, computeEarnedBadges,
-  getSeenBadgeIds, markBadgesSeen,
-} from '../utils/badges';
+  BADGES,
+  BadgeDef,
+  computeEarnedBadges,
+  getSeenBadgeIds,
+  markBadgesSeen,
+} from "../utils/badges";
 
-const NAVY = '#1A1F3C';
-const PARTICLE_COLORS = ['#e13d7d', '#f59e0b', '#06b6d4', '#8b5cf6', '#f97316', '#10b981'];
+const NAVY = "#1A1F3C";
+const GOLD = "#f59e0b";
+const PARTICLE_COLORS = [
+  "#e13d7d",
+  "#f59e0b",
+  "#06b6d4",
+  "#8b5cf6",
+  "#f97316",
+  "#10b981",
+];
 const PARTICLE_COUNT = 12;
 
-function CelebrationModal({ badge, onDismiss }: { badge: BadgeDef; onDismiss: () => void }) {
+// ── Monster definitions ────────────────────────────────────────────────────────
+
+type MonsterType = "fire" | "water" | "grass";
+
+const MONSTER_DEFS: Record<
+  MonsterType,
+  {
+    label: string;
+    color: string;
+    egg: any;
+    stages: { id: number; name: string; gif: any; starsNeeded: number; desc: string }[];
+  }
+> = {
+  fire: {
+    label: "Fire",
+    color: "#f97316",
+    egg: require("../assets/gifs/egg-fire.gif"),
+    stages: [
+      { id: 1, name: "Embyr",  gif: require("../assets/gifs/fire-stage1.gif"), starsNeeded: 0,  desc: "The spark of potential" },
+      { id: 2, name: "Burny",  gif: require("../assets/gifs/fire-stage2.gif"), starsNeeded: 10, desc: "Growing stronger with every drawing" },
+      { id: 3, name: "Flamy",  gif: require("../assets/gifs/fire-stage3.gif"), starsNeeded: 25, desc: "A blazing champion" },
+    ],
+  },
+  water: {
+    label: "Water",
+    color: "#06b6d4",
+    egg: require("../assets/gifs/egg-water.gif"),
+    stages: [
+      { id: 1, name: "Dropi",   gif: require("../assets/gifs/water-stage1.gif"), starsNeeded: 0,  desc: "A tiny drop of wonder" },
+      { id: 2, name: "Wavey",   gif: require("../assets/gifs/water-stage2.gif"), starsNeeded: 10, desc: "Riding the waves of progress" },
+      { id: 3, name: "Tidalon", gif: require("../assets/gifs/water-stage3.gif"), starsNeeded: 25, desc: "Master of the deep" },
+    ],
+  },
+  grass: {
+    label: "Grass",
+    color: "#10b981",
+    egg: require("../assets/gifs/egg-grass.gif"),
+    stages: [
+      { id: 1, name: "Sproutie", gif: require("../assets/gifs/grass-stage1.gif"), starsNeeded: 0,  desc: "A tiny seed of creativity" },
+      { id: 2, name: "Buddie",   gif: require("../assets/gifs/grass-stage2.gif"), starsNeeded: 10, desc: "Blooming with every drawing" },
+      { id: 3, name: "Floron",   gif: require("../assets/gifs/grass-stage3.gif"), starsNeeded: 25, desc: "A radiant guardian of nature" },
+    ],
+  },
+};
+
+function MonsterDexModal({
+  totalStars,
+  stages,
+  onClose,
+}: {
+  totalStars: number;
+  stages: typeof MONSTER_DEFS.fire.stages;
+  onClose: () => void;
+}) {
+  const slideY = useRef(new Animated.Value(400)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(backdropOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+      Animated.spring(slideY, { toValue: 0, friction: 8, tension: 90, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  function handleClose() {
+    Animated.parallel([
+      Animated.timing(backdropOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(slideY, { toValue: 400, duration: 220, useNativeDriver: true }),
+    ]).start(() => onClose());
+  }
+
+  return (
+    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={handleClose}>
+      <Animated.View style={[dex.backdrop, { opacity: backdropOpacity }]}>
+        <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={handleClose} />
+        <Animated.View style={[dex.sheet, { transform: [{ translateY: slideY }] }]}>
+          <View style={dex.handle} />
+          <Text style={dex.title}>Monster Evolution</Text>
+          <Text style={dex.sub}>Earn stars to evolve your companion</Text>
+
+          <View style={dex.grid}>
+            {stages.map((stage) => {
+              const unlocked = totalStars >= stage.starsNeeded;
+              const isCurrent =
+                [...stages].reverse().find((s) => totalStars >= s.starsNeeded)?.id === stage.id;
+              return (
+                <View
+                  key={stage.id}
+                  style={[
+                    dex.cell,
+                    unlocked && dex.cellUnlocked,
+                    isCurrent && dex.cellCurrent,
+                  ]}
+                >
+                  {isCurrent && (
+                    <View style={dex.currentBadge}>
+                      <Text style={dex.currentBadgeText}>Current</Text>
+                    </View>
+                  )}
+                  <View style={dex.imgWrap}>
+                    <Image source={stage.gif} style={dex.img} />
+                    {!unlocked && <View style={dex.silhouette} />}
+                  </View>
+                  <Text style={[dex.stageName, !unlocked && dex.stageNameLocked]}>
+                    {unlocked ? stage.name : "???"}
+                  </Text>
+                  <Text style={dex.stageDesc} numberOfLines={2}>
+                    {stage.desc}
+                  </Text>
+                  {!unlocked && (
+                    <View style={dex.lockRow}>
+                      <Ionicons name="star" size={10} color={GOLD} />
+                      <Text style={dex.lockText}>{stage.starsNeeded} stars</Text>
+                    </View>
+                  )}
+                  {unlocked && (
+                    <View style={dex.unlockedTag}>
+                      <Ionicons name="checkmark-circle" size={11} color="#10b981" />
+                      <Text style={dex.unlockedText}>Unlocked</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        </Animated.View>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+// ── Egg Picker Modal ───────────────────────────────────────────────────────────
+
+function EggPickerModal({
+  onConfirm,
+}: {
+  onConfirm: (type: MonsterType) => void;
+}) {
+  const [selected, setSelected] = useState<MonsterType | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const scale = useRef(new Animated.Value(0.9)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 280, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, friction: 7, tension: 80, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  const EGGS: { type: MonsterType; label: string; color: string; gif: any }[] = [
+    { type: "fire",  label: "Fire",  color: "#f97316", gif: MONSTER_DEFS.fire.egg  },
+    { type: "water", label: "Water", color: "#06b6d4", gif: MONSTER_DEFS.water.egg },
+    { type: "grass", label: "Grass", color: "#10b981", gif: MONSTER_DEFS.grass.egg },
+  ];
+
+  if (confirming && selected) {
+    const def = MONSTER_DEFS[selected];
+    return (
+      <Modal visible transparent animationType="fade" statusBarTranslucent>
+        <View style={egg.backdrop}>
+          <View style={egg.confirmCard}>
+            <Image source={def.egg} style={{ width: 80, height: 80 }} />
+            <Text style={egg.confirmTitle}>Choose {def.label} egg?</Text>
+            <Text style={egg.confirmSub}>
+              Your companion will hatch as{" "}
+              <Text style={{ fontWeight: "900", color: def.color }}>
+                {def.stages[0].name}
+              </Text>
+              .{"\n"}This choice is permanent!
+            </Text>
+            <View style={egg.btnRow}>
+              <TouchableOpacity
+                style={egg.cancelBtn}
+                onPress={() => setConfirming(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={egg.cancelText}>Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[egg.confirmBtn, { backgroundColor: def.color }]}
+                onPress={() => onConfirm(selected)}
+                activeOpacity={0.85}
+              >
+                <Text style={egg.confirmText}>Confirm!</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal visible transparent animationType="none" statusBarTranslucent>
+      <Animated.View style={[egg.backdrop, { opacity }]}>
+        <Animated.View style={[egg.card, { transform: [{ scale }] }]}>
+          <Text style={egg.title}>Choose Your Companion</Text>
+          <Text style={egg.sub}>Pick an egg to start your adventure!</Text>
+
+          <View style={egg.eggRow}>
+            {EGGS.map((e) => {
+              const active = selected === e.type;
+              return (
+                <TouchableOpacity
+                  key={e.type}
+                  style={[egg.eggCell, active && { borderColor: e.color, borderWidth: 3 }]}
+                  onPress={() => setSelected(e.type)}
+                  activeOpacity={0.85}
+                >
+                  {active && (
+                    <View style={[egg.eggCheck, { backgroundColor: e.color }]}>
+                      <Ionicons name="checkmark" size={10} color="#fff" />
+                    </View>
+                  )}
+                  <Image source={e.gif} style={{ width: 72, height: 72 }} />
+                  <Text style={[egg.eggLabel, active && { color: e.color }]}>{e.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <TouchableOpacity
+            style={[egg.chooseBtn, !selected && egg.chooseBtnDisabled]}
+            onPress={() => selected && setConfirming(true)}
+            disabled={!selected}
+            activeOpacity={0.85}
+          >
+            <Text style={egg.chooseBtnText}>Choose Egg</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+// ── Congrats Modal ─────────────────────────────────────────────────────────────
+
+function CongratsModal({
+  monsterType,
+  onDismiss,
+}: {
+  monsterType: MonsterType;
+  onDismiss: () => void;
+}) {
+  const def = MONSTER_DEFS[monsterType];
+  const firstName = def.stages[0].name;
+  const scale = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, friction: 5, tension: 100, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  return (
+    <Modal visible transparent animationType="none" statusBarTranslucent>
+      <Animated.View style={[congrats.backdrop, { opacity }]}>
+        <Animated.View style={[congrats.card, { transform: [{ scale }] }]}>
+          <View style={[congrats.ring, { borderColor: def.color + "55" }]}>
+            <View style={[congrats.circle, { backgroundColor: def.color + "22" }]}>
+              <Image source={def.stages[0].gif} style={{ width: 96, height: 96 }} />
+            </View>
+          </View>
+          <View style={[congrats.tag, { backgroundColor: def.color + "20" }]}>
+            <Ionicons name="sparkles" size={12} color={def.color} />
+            <Text style={[congrats.tagText, { color: def.color }]}>New Companion!</Text>
+          </View>
+          <Text style={congrats.title}>Congratulations!</Text>
+          <Text style={congrats.msg}>
+            Your pet friend is{" "}
+            <Text style={{ fontWeight: "900", color: def.color }}>{firstName}</Text>!
+            {"\n"}Earn stars to help them evolve!
+          </Text>
+          <TouchableOpacity
+            style={[congrats.btn, { backgroundColor: def.color }]}
+            onPress={onDismiss}
+            activeOpacity={0.85}
+          >
+            <Text style={congrats.btnText}>Let's Go!</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+// ── Celebration Modal ──────────────────────────────────────────────────────────
+
+function CelebrationModal({
+  badge,
+  onDismiss,
+}: {
+  badge: BadgeDef;
+  onDismiss: () => void;
+}) {
   const scale = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const particles = useRef(
@@ -27,24 +343,45 @@ function CelebrationModal({ badge, onDismiss }: { badge: BadgeDef; onDismiss: ()
       x: new Animated.Value(0),
       y: new Animated.Value(0),
       opacity: new Animated.Value(0),
-    }))
+    })),
   ).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }),
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scale, {
+        toValue: 1,
+        friction: 5,
+        tension: 120,
+        useNativeDriver: true,
+      }),
     ]).start(() => {
       const anims = particles.map((p, i) => {
         const angle = (i / PARTICLE_COUNT) * Math.PI * 2;
         const dist = 80 + (i % 3) * 18;
         p.opacity.setValue(1);
         return Animated.parallel([
-          Animated.timing(p.x, { toValue: dist * Math.cos(angle), duration: 520, useNativeDriver: true }),
-          Animated.timing(p.y, { toValue: dist * Math.sin(angle), duration: 520, useNativeDriver: true }),
+          Animated.timing(p.x, {
+            toValue: dist * Math.cos(angle),
+            duration: 520,
+            useNativeDriver: true,
+          }),
+          Animated.timing(p.y, {
+            toValue: dist * Math.sin(angle),
+            duration: 520,
+            useNativeDriver: true,
+          }),
           Animated.sequence([
             Animated.delay(180),
-            Animated.timing(p.opacity, { toValue: 0, duration: 340, useNativeDriver: true }),
+            Animated.timing(p.opacity, {
+              toValue: 0,
+              duration: 340,
+              useNativeDriver: true,
+            }),
           ]),
         ]);
       });
@@ -54,11 +391,11 @@ function CelebrationModal({ badge, onDismiss }: { badge: BadgeDef; onDismiss: ()
 
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent>
-      <Animated.View style={[celebStyles.backdrop, { opacity }]}>
-        <Animated.View style={[celebStyles.card, { transform: [{ scale }] }]}>
-          <View style={celebStyles.iconArea}>
-            <View style={[celebStyles.iconRing, { borderColor: badge.color + '33' }]}>
-              <View style={[celebStyles.iconCircle, { backgroundColor: badge.color }]}>
+      <Animated.View style={[cel.backdrop, { opacity }]}>
+        <Animated.View style={[cel.card, { transform: [{ scale }] }]}>
+          <View style={cel.iconArea}>
+            <View style={[cel.iconRing, { borderColor: badge.color + "33" }]}>
+              <View style={[cel.iconCircle, { backgroundColor: badge.color }]}>
                 <Ionicons name={badge.icon as any} size={50} color="#fff" />
               </View>
             </View>
@@ -66,9 +403,10 @@ function CelebrationModal({ badge, onDismiss }: { badge: BadgeDef; onDismiss: ()
               <Animated.View
                 key={i}
                 style={[
-                  celebStyles.particle,
+                  cel.particle,
                   {
-                    backgroundColor: PARTICLE_COLORS[i % PARTICLE_COLORS.length],
+                    backgroundColor:
+                      PARTICLE_COLORS[i % PARTICLE_COLORS.length],
                     transform: [{ translateX: p.x }, { translateY: p.y }],
                     opacity: p.opacity,
                   },
@@ -76,18 +414,20 @@ function CelebrationModal({ badge, onDismiss }: { badge: BadgeDef; onDismiss: ()
               />
             ))}
           </View>
-          <View style={[celebStyles.newTag, { backgroundColor: badge.color + '20' }]}>
+          <View style={[cel.newTag, { backgroundColor: badge.color + "20" }]}>
             <Ionicons name="sparkles" size={11} color={badge.color} />
-            <Text style={[celebStyles.newTagText, { color: badge.color }]}>Badge Claimed!</Text>
+            <Text style={[cel.newTagText, { color: badge.color }]}>
+              Badge Claimed!
+            </Text>
           </View>
-          <Text style={celebStyles.badgeName}>{badge.name}</Text>
-          <Text style={celebStyles.badgeDesc}>{badge.desc}</Text>
+          <Text style={cel.badgeName}>{badge.name}</Text>
+          <Text style={cel.badgeDesc}>{badge.desc}</Text>
           <TouchableOpacity
-            style={[celebStyles.btn, { backgroundColor: badge.color }]}
+            style={[cel.btn, { backgroundColor: badge.color }]}
             onPress={onDismiss}
             activeOpacity={0.85}
           >
-            <Text style={celebStyles.btnText}>Awesome!</Text>
+            <Text style={cel.btnText}>Awesome!</Text>
           </TouchableOpacity>
         </Animated.View>
       </Animated.View>
@@ -95,437 +435,1111 @@ function CelebrationModal({ badge, onDismiss }: { badge: BadgeDef; onDismiss: ()
   );
 }
 
-function ClaimableBadgeCard({ badge, onClaim }: { badge: BadgeDef; onClaim: () => void }) {
-  const pulse = useRef(new Animated.Value(0.5)).current;
+// ── Star Grant Confirmation Modal ──────────────────────────────────────────────
 
+function StarGrantModal({
+  childName,
+  onConfirm,
+  onCancel,
+}: {
+  childName: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const scale = useRef(new Animated.Value(0.85)).current;
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: 1,
+      friction: 6,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  return (
+    <Modal visible transparent animationType="fade" statusBarTranslucent>
+      <View style={grantModal.backdrop}>
+        <Animated.View style={[grantModal.card, { transform: [{ scale }] }]}>
+          <View style={grantModal.iconCircle}>
+            <Ionicons name="star" size={36} color={GOLD} />
+          </View>
+          <Text style={grantModal.title}>Give a Star?</Text>
+          <Text style={grantModal.msg}>
+            You're awarding 1 star to{" "}
+            <Text style={{ fontWeight: "800", color: NAVY }}>{childName}</Text>.
+            {"\n"}Stars show your child you're proud of them!
+          </Text>
+          <View style={grantModal.btnRow}>
+            <TouchableOpacity
+              style={grantModal.cancelBtn}
+              onPress={onCancel}
+              activeOpacity={0.8}
+            >
+              <Text style={grantModal.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={grantModal.confirmBtn}
+              onPress={onConfirm}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="star" size={15} color="#fff" />
+              <Text style={grantModal.confirmText}>Give Star!</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
+// ── Badge Cards ────────────────────────────────────────────────────────────────
+
+const BASE_CARD: any = {
+  width: "47.5%",
+  backgroundColor: "#fff",
+  borderRadius: 20,
+  padding: 14,
+  borderWidth: 2,
+  alignItems: "center",
+  gap: 6,
+  ...SHADOW.sm,
+};
+
+function ClaimableBadgeCard({
+  badge,
+  onClaim,
+}: {
+  badge: BadgeDef;
+  onClaim: () => void;
+}) {
+  const pulse = useRef(new Animated.Value(0.5)).current;
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 750, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0.5, duration: 750, useNativeDriver: true }),
-      ])
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 750,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 0.5,
+          duration: 750,
+          useNativeDriver: true,
+        }),
+      ]),
     );
     loop.start();
     return () => loop.stop();
   }, []);
-
   return (
     <TouchableOpacity
-      style={[claimCardStyles.card, { borderColor: badge.color }]}
+      style={[claimCard.card, { borderColor: badge.color }]}
       onPress={onClaim}
       activeOpacity={0.88}
     >
-      <Animated.View style={[
-        claimCardStyles.glowRing,
-        { borderColor: badge.color, opacity: pulse },
-      ]} />
-      <View style={[claimCardStyles.iconCircle, { backgroundColor: badge.color }]}>
+      <Animated.View
+        style={[
+          claimCard.glowRing,
+          { borderColor: badge.color, opacity: pulse },
+        ]}
+      />
+      <View style={[claimCard.iconCircle, { backgroundColor: badge.color }]}>
         <Ionicons name={badge.icon as any} size={26} color="#fff" />
       </View>
-      <Text style={[claimCardStyles.name, { color: badge.color }]}>{badge.name}</Text>
-      <Text style={claimCardStyles.desc} numberOfLines={2}>{badge.desc}</Text>
-      <View style={[claimCardStyles.claimBtn, { backgroundColor: badge.color }]}>
+      <Text style={[claimCard.name, { color: badge.color }]}>{badge.name}</Text>
+      <Text style={claimCard.desc} numberOfLines={2}>
+        {badge.desc}
+      </Text>
+      <View style={[claimCard.claimBtn, { backgroundColor: badge.color }]}>
         <Ionicons name="gift-outline" size={13} color="#fff" />
-        <Text style={claimCardStyles.claimBtnText}>Tap to Claim</Text>
+        <Text style={claimCard.claimBtnText}>Tap to Claim</Text>
       </View>
     </TouchableOpacity>
   );
 }
 
+function EarnedBadgeCard({ badge }: { badge: BadgeDef }) {
+  return (
+    <View
+      style={[
+        earnedCard.card,
+        {
+          borderColor: badge.color + "55",
+          backgroundColor: badge.color + "10",
+        },
+      ]}
+    >
+      <View style={[earnedCard.iconCircle, { backgroundColor: badge.color }]}>
+        <Ionicons name={badge.icon as any} size={26} color="#fff" />
+      </View>
+      <Text style={earnedCard.name}>{badge.name}</Text>
+      <Text style={earnedCard.desc} numberOfLines={2}>
+        {badge.desc}
+      </Text>
+      <View style={[earnedCard.tag, { backgroundColor: badge.color + "20" }]}>
+        <Ionicons name="checkmark-circle" size={11} color={badge.color} />
+        <Text style={[earnedCard.tagText, { color: badge.color }]}>Earned</Text>
+      </View>
+    </View>
+  );
+}
+
+function LockedBadgeCard({
+  badge,
+  sketches,
+}: {
+  badge: BadgeDef;
+  sketches: Sketch[];
+}) {
+  const prog = badge.progress ? badge.progress(sketches) : null;
+  return (
+    <View style={lockedCard.card}>
+      <View style={lockedCard.iconCircle}>
+        <Ionicons name={badge.icon as any} size={26} color="#9ca3af" />
+        <View style={lockedCard.lockDot}>
+          <Ionicons name="lock-closed" size={8} color="#fff" />
+        </View>
+      </View>
+      <Text style={lockedCard.name}>{badge.name}</Text>
+      <Text style={lockedCard.desc} numberOfLines={2}>
+        {badge.desc}
+      </Text>
+      {prog && (
+        <View style={lockedCard.progWrap}>
+          <View style={lockedCard.progTrack}>
+            <View
+              style={[
+                lockedCard.progFill,
+                {
+                  width: `${(prog.current / prog.total) * 100}%` as any,
+                  backgroundColor: badge.color,
+                },
+              ]}
+            />
+          </View>
+          <Text style={lockedCard.progText}>
+            {prog.current}/{prog.total}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ── Main Screen ────────────────────────────────────────────────────────────────
+
 export default function RewardsScreen() {
   const { profile } = useApp();
   const router = useRouter();
-  const { patientId, patientName } = useLocalSearchParams<{ patientId: string; patientName: string }>();
 
   const [children, setChildren] = useState<Patient[]>([]);
-  const [childrenLoading, setChildrenLoading] = useState(false);
-
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [sketches, setSketches] = useState<Sketch[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [bonusStars, setBonusStars] = useState(0);
   const [seenIds, setSeenIds] = useState<string[]>([]);
+  const [childrenLoading, setChildrenLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(false);
   const [celebration, setCelebration] = useState<BadgeDef | null>(null);
+  const [showGrantModal, setShowGrantModal] = useState(false);
+  const [showDex, setShowDex] = useState(false);
+  const [monsterType, setMonsterType] = useState<MonsterType | null>(null);
+  const [monsterLoading, setMonsterLoading] = useState(true);
+  const [congratsType, setCongratsType] = useState<MonsterType | null>(null);
+
+  // Load monster type when child changes
+  useEffect(() => {
+    if (!selectedChildId) { setMonsterType(null); setMonsterLoading(false); return; }
+    setMonsterLoading(true);
+    AsyncStorage.getItem(`monster_type_${selectedChildId}`)
+      .then((v) => setMonsterType((v as MonsterType) ?? null))
+      .catch(() => setMonsterType(null))
+      .finally(() => setMonsterLoading(false));
+  }, [selectedChildId]);
+
+  async function handleChooseMonster(type: MonsterType) {
+    if (!selectedChildId) return;
+    await AsyncStorage.setItem(`monster_type_${selectedChildId}`, type);
+    setMonsterType(type);
+    setCongratsType(type);
+  }
+
+  // Fetch children on mount
+  useEffect(() => {
+    (async () => {
+      if (!profile?.id) return;
+      const { data } = await supabase
+        .from("patients")
+        .select(
+          "id, full_name, age, gender, total_sketches, status, guardian_id, therapist_id",
+        )
+        .eq("guardian_id", profile.id)
+        .order("full_name");
+      const kids = (data ?? []) as Patient[];
+      setChildren(kids);
+      if (kids.length > 0) setSelectedChildId(kids[0].id);
+      setChildrenLoading(false);
+    })();
+  }, [profile?.id]);
+
+  // Load sketches + badges + bonus stars when child changes
+  const loadChildData = useCallback(async (childId: string) => {
+    setDataLoading(true);
+    const [{ data: sk }, seen, bonus] = await Promise.all([
+      supabase
+        .from("sketches")
+        .select(
+          "id, patient_id, emotion, created_at, notes, therapist_notes, image_url, scores, therapist_message, pre_mood, status, reviewed_at, verified_at",
+        )
+        .eq("patient_id", childId)
+        .order("created_at", { ascending: false }),
+      getSeenBadgeIds(childId),
+      AsyncStorage.getItem(`bonus_stars_${childId}`)
+        .then((v) => (v ? parseInt(v, 10) : 0))
+        .catch(() => 0),
+    ]);
+    setSketches((sk ?? []) as Sketch[]);
+    setSeenIds(seen);
+    setBonusStars(bonus);
+    setDataLoading(false);
+  }, []);
 
   useEffect(() => {
-    if (patientId) {
-      setLoading(true);
-      fetchData(patientId);
-    } else {
-      setChildrenLoading(true);
-      fetchChildren();
+    if (selectedChildId) loadChildData(selectedChildId);
+    else {
+      setSketches([]);
+      setSeenIds([]);
+      setBonusStars(0);
     }
-  }, [patientId]);
-
-  async function fetchChildren() {
-    if (!profile?.id) return;
-    const { data } = await supabase
-      .from('patients')
-      .select('*')
-      .eq('guardian_id', profile.id)
-      .order('full_name');
-    setChildren(data ?? []);
-    setChildrenLoading(false);
-  }
-
-  async function fetchData(pid: string) {
-    const { data } = await supabase
-      .from('sketches')
-      .select('emotion, created_at')
-      .eq('patient_id', pid)
-      .order('created_at', { ascending: false });
-
-    const fetched = (data ?? []) as Sketch[];
-    setSketches(fetched);
-
-    const loadedSeenIds = await getSeenBadgeIds(pid);
-    setSeenIds(loadedSeenIds);
-    setLoading(false);
-  }
+  }, [selectedChildId]);
 
   async function handleClaim(badge: BadgeDef) {
-    if (!patientId) return;
+    if (!selectedChildId) return;
     setCelebration(badge);
     const newSeenIds = [...seenIds, badge.id];
     setSeenIds(newSeenIds);
-    await markBadgesSeen(patientId, newSeenIds);
+    await markBadgesSeen(selectedChildId, newSeenIds);
   }
 
-  // ── No patientId: child picker ────────────────────────────
-  if (!patientId) {
+  async function handleGiveStarConfirm() {
+    if (!selectedChildId) return;
+    const next = bonusStars + 1;
+    setBonusStars(next);
+    await AsyncStorage.setItem(`bonus_stars_${selectedChildId}`, String(next));
+    setShowGrantModal(false);
+  }
+
+  const selectedChild = children.find((c) => c.id === selectedChildId);
+  const firstName = selectedChild?.full_name.split(" ")[0] ?? "Child";
+
+  const earnedBadges = computeEarnedBadges(sketches);
+  const claimableBadges = earnedBadges.filter((b) => !seenIds.includes(b.id));
+  const claimedBadges = earnedBadges.filter((b) => seenIds.includes(b.id));
+  const lockedBadges = BADGES.filter((b) => !b.earned(sketches));
+  const totalStars = sketches.length + bonusStars;
+  const pct =
+    BADGES.length > 0
+      ? Math.round((earnedBadges.length / BADGES.length) * 100)
+      : 0;
+
+  // ── Empty / loading states ─────────────────────────────────────────────────
+
+  if (childrenLoading) {
     return (
       <ParentShell>
-        <View style={styles.root}>
-          <View style={[styles.header, false]}>
-            <Text style={[styles.headerTitle, false]}>Rewards</Text>
-            <Text style={[styles.headerPickerSub, false]}>Select a child to view their badges</Text>
-          </View>
-
-
-          {childrenLoading ? (
-            <View style={styles.loadingWrap}>
-              <ActivityIndicator size="large" color={C.primary} />
-            </View>
-          ) : children.length === 0 ? (
-            <View style={styles.loadingWrap}>
-              <Ionicons name="people-outline" size={60} color={C.borderMed} />
-              <Text style={{ fontSize: 17, fontWeight: '700', color: C.text, marginTop: 16 }}>No children yet</Text>
-              <TouchableOpacity
-                style={{ marginTop: 20, backgroundColor: NAVY, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }}
-                onPress={() => router.push('/dashboard')}
-              >
-                <Text style={{ color: '#fff', fontWeight: '700' }}>Go to Children</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <ScrollView contentContainerStyle={pickerStyles.list}>
-              {children.map(child => (
-                <TouchableOpacity
-                  key={child.id}
-                  style={pickerStyles.card}
-                  onPress={() => router.push({ pathname: '/rewards', params: { patientId: child.id, patientName: child.full_name } })}
-                  activeOpacity={0.75}
-                >
-                  <View style={pickerStyles.avatar}>
-                    <Text style={pickerStyles.avatarText}>{child.full_name.charAt(0).toUpperCase()}</Text>
-                  </View>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={pickerStyles.name}>{child.full_name}</Text>
-                    <Text style={pickerStyles.meta}>{child.age} y/o · {child.gender}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={C.borderMed} />
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
+        <View style={s.center}>
+          <ActivityIndicator size="large" color={C.primary} />
         </View>
       </ParentShell>
     );
   }
 
-  // ── Has patientId: rewards view ───────────────────────────
-  const firstName = (patientName ?? '').split(' ')[0] || 'Child';
-  const earnedBadges = computeEarnedBadges(sketches);
-  const claimableBadges = earnedBadges.filter(b => !seenIds.includes(b.id));
-  const claimedBadges = earnedBadges.filter(b => seenIds.includes(b.id));
-  const lockedBadges = BADGES.filter(b => !b.earned(sketches));
-  const pct = Math.round((earnedBadges.length / BADGES.length) * 100);
+  if (children.length === 0) {
+    return (
+      <ParentShell>
+        <View style={s.root}>
+          <View style={s.header}>
+            <Text style={s.headerTitle}>Rewards</Text>
+          </View>
+          <View style={s.center}>
+            <Ionicons name="people-outline" size={56} color={C.borderMed} />
+            <Text style={s.emptyTitle}>No children yet</Text>
+            <Text style={s.emptyMsg}>
+              Add a child first to start tracking their rewards.
+            </Text>
+          </View>
+        </View>
+      </ParentShell>
+    );
+  }
+
+  // ── Main render ────────────────────────────────────────────────────────────
 
   return (
     <ParentShell>
-    <View style={styles.root}>
-      <View style={[styles.header, false]}>
-        <View style={styles.headerInner}>
-          <TouchableOpacity
-            onPress={() => router.canGoBack() ? router.back() : router.replace('/rewards')}
-            style={styles.backBtn}
-          >
-            <Ionicons name="chevron-back" size={20} color={'#fff'} />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.headerTitle, false]}>{firstName}'s Badges</Text>
-            <Text style={[styles.headerSub, false]}>{earnedBadges.length} of {BADGES.length} earned</Text>
+      <View style={s.root}>
+        {/* Header */}
+        <View style={s.header}>
+          <View style={s.headerRow}>
+            <TouchableOpacity
+              style={s.backBtn}
+              onPress={() => router.back()}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chevron-back" size={22} color="#fff" />
+            </TouchableOpacity>
+            <View>
+              <Text style={s.headerTitle}>Rewards</Text>
+              <Text style={s.headerSub}>
+                Track badges and celebrate progress
+              </Text>
+            </View>
           </View>
         </View>
-        <View style={[styles.progressTrack, false]}>
-          <View style={[styles.progressFill, false, { width: `${pct}%` as any }]} />
-        </View>
+
+        {/* Child selector pills */}
+        {children.length > 1 && (
+          <View style={s.chipRow}>
+            {children.map((child) => {
+              const active = child.id === selectedChildId;
+              return (
+                <TouchableOpacity
+                  key={child.id}
+                  style={[s.chip, active ? s.chipActive : s.chipInactive]}
+                  onPress={() => setSelectedChildId(child.id)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[s.chipText, active && s.chipTextActive]}>
+                    {child.full_name.split(" ")[0]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {dataLoading || monsterLoading ? (
+          <View style={s.center}>
+            <ActivityIndicator size="large" color={C.primary} />
+          </View>
+        ) : (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={s.scroll}
+          >
+            {/* Stars card */}
+            <View style={s.starsCard}>
+              <View style={s.starsLeft}>
+                <Text style={s.starsLabel}>{firstName}'s Stars</Text>
+                <Text style={s.starsCount}>{totalStars}</Text>
+                <Text style={s.starsMeta}>
+                  {sketches.length} from drawings · {bonusStars} bonus
+                </Text>
+                <Text style={s.feedLabel}>Feed your pet with drawing!</Text>
+              </View>
+              <TouchableOpacity
+                style={s.starsIconWrap}
+                onPress={() => monsterType && setShowDex(true)}
+                activeOpacity={0.8}
+              >
+                {monsterType ? (
+                  <Image
+                    source={
+                      [...MONSTER_DEFS[monsterType].stages]
+                        .reverse()
+                        .find((st) => totalStars >= st.starsNeeded)!.gif
+                    }
+                    style={{ width: 128, height: 128 }}
+                  />
+                ) : (
+                  <Image
+                    source={MONSTER_DEFS.fire.egg}
+                    style={{ width: 80, height: 80, opacity: 0.5 }}
+                  />
+                )}
+                <View style={s.tapHint}>
+                  <Ionicons name="chevron-up" size={10} color="rgba(255,255,255,0.7)" />
+                  <Text style={s.tapHintText}>Evolve</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* Badge progress bar */}
+            <View style={s.progCard}>
+              <View style={s.progHeader}>
+                <Text style={s.progLabel}>Badge Progress</Text>
+                <Text style={s.progPct}>
+                  {earnedBadges.length} / {BADGES.length}
+                </Text>
+              </View>
+              <View style={s.progTrack}>
+                <View style={[s.progFill, { width: `${pct}%` as any }]} />
+              </View>
+            </View>
+
+            {/* Give Star button */}
+            <TouchableOpacity
+              style={s.giveStarBtn}
+              onPress={() => setShowGrantModal(true)}
+              activeOpacity={0.85}
+            >
+              <View style={s.giveStarIcon}>
+                <Ionicons name="star" size={20} color={GOLD} />
+              </View>
+              <Text style={s.giveStarText}>Give a Star to {firstName}</Text>
+              <Ionicons name="chevron-forward" size={16} color={NAVY} />
+            </TouchableOpacity>
+
+            {/* Claimable badges */}
+            {claimableBadges.length > 0 && (
+              <>
+                <View style={s.sectionRow}>
+                  <View style={s.claimDot} />
+                  <Text style={s.claimTitle}>Ready to Claim!</Text>
+                </View>
+                <View style={s.grid}>
+                  {claimableBadges.map((b) => (
+                    <ClaimableBadgeCard
+                      key={b.id}
+                      badge={b}
+                      onClaim={() => handleClaim(b)}
+                    />
+                  ))}
+                </View>
+              </>
+            )}
+
+            {/* Earned badges */}
+            {claimedBadges.length > 0 && (
+              <>
+                <Text style={s.sectionTitle}>Earned</Text>
+                <View style={s.grid}>
+                  {claimedBadges.map((b) => (
+                    <EarnedBadgeCard key={b.id} badge={b} />
+                  ))}
+                </View>
+              </>
+            )}
+
+            {/* Locked badges */}
+            {lockedBadges.length > 0 && (
+              <>
+                <Text style={s.sectionTitle}>
+                  {earnedBadges.length === 0
+                    ? "Start drawing to unlock badges"
+                    : "Keep going"}
+                </Text>
+                <View style={s.grid}>
+                  {lockedBadges.map((b) => (
+                    <LockedBadgeCard key={b.id} badge={b} sketches={sketches} />
+                  ))}
+                </View>
+              </>
+            )}
+
+            {earnedBadges.length === BADGES.length &&
+              claimableBadges.length === 0 && (
+                <View style={s.allEarned}>
+                  <Ionicons name="trophy" size={26} color="#d97706" />
+                  <Text style={s.allEarnedText}>
+                    Every badge earned. Amazing!
+                  </Text>
+                </View>
+              )}
+          </ScrollView>
+        )}
       </View>
 
-      {loading ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={C.primary} />
-        </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={[
-            styles.content,
-            false,
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          {claimableBadges.length > 0 && (
-            <>
-              <View style={styles.claimHeader}>
-                <View style={styles.claimDot} />
-                <Text style={styles.claimTitle}>Ready to Claim!</Text>
-              </View>
-              <View style={styles.grid}>
-                {claimableBadges.map(b => (
-                  <ClaimableBadgeCard key={b.id} badge={b} onClaim={() => handleClaim(b)} />
-                ))}
-              </View>
-            </>
-          )}
-
-          {claimedBadges.length > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>Earned</Text>
-              <View style={styles.grid}>
-                {claimedBadges.map(b => (
-                  <EarnedBadgeCard key={b.id} badge={b} />
-                ))}
-              </View>
-            </>
-          )}
-
-          {lockedBadges.length > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>
-                {earnedBadges.length === 0 ? 'Start drawing to unlock badges' : 'Keep going'}
-              </Text>
-              <View style={styles.grid}>
-                {lockedBadges.map(b => (
-                  <LockedBadgeCard key={b.id} badge={b} sketches={sketches} />
-                ))}
-              </View>
-            </>
-          )}
-
-          {earnedBadges.length === BADGES.length && claimableBadges.length === 0 && (
-            <View style={styles.allEarnedBanner}>
-              <Ionicons name="trophy" size={26} color="#d97706" />
-              <Text style={styles.allEarnedText}>You have earned every badge. Amazing!</Text>
-            </View>
-          )}
-        </ScrollView>
-      )}
-
       {celebration && (
-        <CelebrationModal badge={celebration} onDismiss={() => setCelebration(null)} />
+        <CelebrationModal
+          badge={celebration}
+          onDismiss={() => setCelebration(null)}
+        />
       )}
-    </View>
+
+      {!monsterType && !monsterLoading && selectedChildId && (
+        <EggPickerModal onConfirm={handleChooseMonster} />
+      )}
+
+      {congratsType && (
+        <CongratsModal
+          monsterType={congratsType}
+          onDismiss={() => setCongratsType(null)}
+        />
+      )}
+
+      {showDex && monsterType && (
+        <MonsterDexModal
+          totalStars={totalStars}
+          stages={MONSTER_DEFS[monsterType].stages}
+          onClose={() => setShowDex(false)}
+        />
+      )}
+
+      {showGrantModal && selectedChild && (
+        <StarGrantModal
+          childName={selectedChild.full_name}
+          onConfirm={handleGiveStarConfirm}
+          onCancel={() => setShowGrantModal(false)}
+        />
+      )}
     </ParentShell>
   );
 }
 
-function EarnedBadgeCard({ badge }: { badge: BadgeDef }) {
-  return (
-    <View style={[earnedCardStyles.card, { borderColor: badge.color + '55', backgroundColor: badge.color + '10' }]}>
-      <View style={[earnedCardStyles.iconCircle, { backgroundColor: badge.color }]}>
-        <Ionicons name={badge.icon as any} size={26} color="#fff" />
-      </View>
-      <Text style={earnedCardStyles.name}>{badge.name}</Text>
-      <Text style={earnedCardStyles.desc} numberOfLines={2}>{badge.desc}</Text>
-      <View style={[earnedCardStyles.tag, { backgroundColor: badge.color + '20' }]}>
-        <Ionicons name="checkmark-circle" size={11} color={badge.color} />
-        <Text style={[earnedCardStyles.tagText, { color: badge.color }]}>Earned</Text>
-      </View>
-    </View>
-  );
-}
+// ── Styles ─────────────────────────────────────────────────────────────────────
 
-function LockedBadgeCard({ badge, sketches }: { badge: BadgeDef; sketches: Sketch[] }) {
-  const prog = badge.progress ? badge.progress(sketches) : null;
-  return (
-    <View style={lockedCardStyles.card}>
-      <View style={lockedCardStyles.iconCircle}>
-        <Ionicons name={badge.icon as any} size={26} color="#9ca3af" />
-        <View style={lockedCardStyles.lockDot}>
-          <Ionicons name="lock-closed" size={8} color="#fff" />
-        </View>
-      </View>
-      <Text style={lockedCardStyles.name}>{badge.name}</Text>
-      <Text style={lockedCardStyles.desc} numberOfLines={2}>{badge.desc}</Text>
-      {prog && (
-        <View style={lockedCardStyles.progWrap}>
-          <View style={lockedCardStyles.progTrack}>
-            <View style={[lockedCardStyles.progFill, { width: `${(prog.current / prog.total) * 100}%` as any, backgroundColor: badge.color }]} />
-          </View>
-          <Text style={lockedCardStyles.progText}>{prog.current}/{prog.total}</Text>
-        </View>
-      )}
-    </View>
-  );
-}
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#F5F7FF" },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 12,
+    padding: 32,
+  },
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FFF8F0' },
   header: {
+    paddingHorizontal: 20,
+    paddingTop: 56,
+    paddingBottom: 20,
     backgroundColor: NAVY,
-    paddingTop: 52, paddingBottom: 0, paddingHorizontal: 24,
   },
-  headerWide: { backgroundColor: '#fff', paddingTop: 0, borderBottomWidth: 1, borderBottomColor: '#EBEBEB' },
-  headerInner: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8,
+  headerRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    flexShrink: 0,
+    alignSelf: "center",
   },
-  backBtn: {},
-  headerTitle: { fontSize: 26, fontWeight: '800', color: '#fff', marginBottom: 2 },
-  headerTitleWide: { color: NAVY },
-  headerSub: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 3 },
-  headerSubWide: { color: '#888' },
-  headerPickerSub: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 3, paddingBottom: 14 },
-  headerPickerSubWide: { color: '#888' },
-  progressTrack: { height: 7, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden', marginBottom: 14 },
-  progressTrackWide: { backgroundColor: '#EBEBEB' },
-  progressFill: { height: '100%', borderRadius: 4, backgroundColor: '#fff' },
-  progressFillWide: { backgroundColor: NAVY },
-  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  content: { padding: 18, paddingBottom: 40 },
+  headerTitle: { fontSize: 26, fontWeight: "800", color: "#fff" },
+  headerSub: { fontSize: 13, color: "rgba(255,255,255,0.65)", marginTop: 2 },
 
-  claimHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, marginTop: 4 },
-  claimDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444' },
-  claimTitle: { fontSize: 13, fontWeight: '900', color: '#ef4444', textTransform: 'uppercase', letterSpacing: 0.8 },
+  chipRow: {
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 10,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1.5,
+  },
+  chipInactive: { backgroundColor: "#fff", borderColor: "#E5E7EB" },
+  chipActive: { backgroundColor: NAVY, borderColor: NAVY },
+  chipText: { fontSize: 13, fontWeight: "600", color: "#374151" },
+  chipTextActive: { color: "#fff" },
 
+  scroll: { paddingHorizontal: 16, paddingBottom: 40, gap: 0 },
+
+  // Stars card
+  starsCard: {
+    backgroundColor: NAVY,
+    borderRadius: 20,
+    paddingHorizontal: 25,
+    paddingTop: 22,
+    paddingBottom: 2,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginBottom: 12,
+    ...SHADOW.md,
+  },
+  starsLeft: { gap: 4, paddingTop: 4 },
+  starsLabel: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.7)",
+    fontWeight: "600",
+  },
+  starsCount: { fontSize: 48, fontWeight: "900", color: GOLD, lineHeight: 54 },
+  starsMeta: { fontSize: 12, color: "rgba(255,255,255,0.6)" },
+  feedLabel: { fontSize: 11, color: "rgba(255,255,255,0.5)", fontStyle: "italic", marginTop: 4 },
+  starsIconWrap: { opacity: 0.9, marginRight: -8, alignItems: "center" },
+  tapHint: {
+    flexDirection: "row", alignItems: "center", gap: 3, marginTop: 2,
+  },
+  tapHintText: { fontSize: 10, fontWeight: "700", color: "rgba(255,255,255,0.65)" },
+
+  // Progress bar
+  progCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    ...SHADOW.sm,
+  },
+  progHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  progLabel: { fontSize: 13, fontWeight: "700", color: NAVY },
+  progPct: { fontSize: 13, fontWeight: "700", color: C.primary },
+  progTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#F0F0F8",
+    overflow: "hidden",
+  },
+  progFill: { height: "100%", borderRadius: 4, backgroundColor: C.primary },
+
+  // Give Star button
+  giveStarBtn: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 24,
+    ...SHADOW.sm,
+    borderWidth: 1.5,
+    borderColor: GOLD + "55",
+  },
+  giveStarIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#fffbeb",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  giveStarText: { flex: 1, fontSize: 15, fontWeight: "700", color: NAVY },
+
+  // Section headers
+  sectionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  claimDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#ef4444",
+  },
+  claimTitle: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#ef4444",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
   sectionTitle: {
-    fontSize: 11, fontWeight: '800', color: C.textMuted,
-    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12, marginTop: 4,
+    fontSize: 11,
+    fontWeight: "800",
+    color: C.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 12,
+    marginTop: 4,
   },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
-  allEarnedBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#fef3c7', borderRadius: 16, padding: 18,
-    borderWidth: 1.5, borderColor: '#fde68a',
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 24 },
+
+  allEarned: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#fef3c7",
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1.5,
+    borderColor: "#fde68a",
   },
-  allEarnedText: { flex: 1, fontSize: 15, fontWeight: '700', color: '#92400e' },
+  allEarnedText: { flex: 1, fontSize: 15, fontWeight: "700", color: "#92400e" },
+
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: C.text,
+    textAlign: "center",
+  },
+  emptyMsg: {
+    fontSize: 14,
+    color: C.textSub,
+    textAlign: "center",
+    lineHeight: 20,
+  },
 });
 
-const pickerStyles = StyleSheet.create({
-  list: { padding: 20, gap: 10 },
-  card: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: C.white, borderRadius: 16, padding: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
-  },
-  avatar: {
-    width: 48, height: 48, borderRadius: 14,
-    backgroundColor: '#EDEDF8', justifyContent: 'center', alignItems: 'center',
-  },
-  avatarText: { fontSize: 18, fontWeight: '800', color: NAVY },
-  name: { fontSize: 16, fontWeight: '700', color: NAVY },
-  meta: { fontSize: 12, color: C.textSub },
-});
-
-const BASE_CARD: any = {
-  width: '47.5%', backgroundColor: '#fff',
-  borderRadius: 20, padding: 14, borderWidth: 2,
-  alignItems: 'center', gap: 6,
-  shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
-};
-
-const claimCardStyles = StyleSheet.create({
-  card: { ...BASE_CARD, borderWidth: 2.5, overflow: 'visible' },
+const claimCard = StyleSheet.create({
+  card: { ...BASE_CARD, borderWidth: 2.5, overflow: "visible" },
   glowRing: {
-    position: 'absolute', top: -5, left: -5, right: -5, bottom: -5,
-    borderRadius: 25, borderWidth: 3,
+    position: "absolute",
+    top: -5,
+    left: -5,
+    right: -5,
+    bottom: -5,
+    borderRadius: 25,
+    borderWidth: 3,
   },
   iconCircle: {
-    width: 60, height: 60, borderRadius: 30,
-    justifyContent: 'center', alignItems: 'center', marginBottom: 2,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 2,
   },
-  name: { fontSize: 13, fontWeight: '900', textAlign: 'center' },
-  desc: { fontSize: 11, color: C.textSub, textAlign: 'center', lineHeight: 16 },
+  name: { fontSize: 13, fontWeight: "900", textAlign: "center" },
+  desc: { fontSize: 11, color: C.textSub, textAlign: "center", lineHeight: 16 },
   claimBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginTop: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginTop: 2,
   },
-  claimBtnText: { fontSize: 11, fontWeight: '900', color: '#fff' },
+  claimBtnText: { fontSize: 11, fontWeight: "900", color: "#fff" },
 });
 
-const earnedCardStyles = StyleSheet.create({
+const earnedCard = StyleSheet.create({
   card: { ...BASE_CARD },
   iconCircle: {
-    width: 60, height: 60, borderRadius: 30,
-    justifyContent: 'center', alignItems: 'center', marginBottom: 2,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 2,
   },
-  name: { fontSize: 13, fontWeight: '800', color: C.text, textAlign: 'center' },
-  desc: { fontSize: 11, color: C.textSub, textAlign: 'center', lineHeight: 16 },
+  name: { fontSize: 13, fontWeight: "800", color: C.text, textAlign: "center" },
+  desc: { fontSize: 11, color: C.textSub, textAlign: "center", lineHeight: 16 },
   tag: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, marginTop: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    marginTop: 2,
   },
-  tagText: { fontSize: 10, fontWeight: '800' },
+  tagText: { fontSize: 10, fontWeight: "800" },
 });
 
-const lockedCardStyles = StyleSheet.create({
-  card: { ...BASE_CARD, borderColor: '#F0E6FF' },
+const lockedCard = StyleSheet.create({
+  card: { ...BASE_CARD, borderColor: "#F0E6FF" },
   iconCircle: {
-    width: 60, height: 60, borderRadius: 30, backgroundColor: '#e5e7eb',
-    justifyContent: 'center', alignItems: 'center', marginBottom: 2,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#e5e7eb",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 2,
   },
   lockDot: {
-    position: 'absolute', bottom: 2, right: 2,
-    width: 16, height: 16, borderRadius: 8,
-    backgroundColor: '#9ca3af', justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1.5, borderColor: '#fff',
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#9ca3af",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#fff",
   },
-  name: { fontSize: 13, fontWeight: '800', color: C.textMuted, textAlign: 'center' },
-  desc: { fontSize: 11, color: C.textSub, textAlign: 'center', lineHeight: 16 },
-  progWrap: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
-  progTrack: { flex: 1, height: 5, borderRadius: 3, backgroundColor: '#e5e7eb', overflow: 'hidden' },
-  progFill: { height: '100%', borderRadius: 3 },
-  progText: { fontSize: 10, fontWeight: '700', color: C.textMuted },
+  name: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: C.textMuted,
+    textAlign: "center",
+  },
+  desc: { fontSize: 11, color: C.textSub, textAlign: "center", lineHeight: 16 },
+  progWrap: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 2,
+  },
+  progTrack: {
+    flex: 1,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: "#e5e7eb",
+    overflow: "hidden",
+  },
+  progFill: { height: "100%", borderRadius: 3 },
+  progText: { fontSize: 10, fontWeight: "700", color: C.textMuted },
 });
 
-const celebStyles = StyleSheet.create({
+const cel = StyleSheet.create({
   backdrop: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center', alignItems: 'center', padding: 32,
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 32,
   },
   card: {
-    backgroundColor: '#fff', borderRadius: 28, padding: 28,
-    alignItems: 'center', width: '100%', gap: 8,
-    shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 24, elevation: 12,
+    backgroundColor: "#fff",
+    borderRadius: 28,
+    padding: 28,
+    alignItems: "center",
+    width: "100%",
+    gap: 8,
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    elevation: 12,
   },
-  iconArea: { width: 140, height: 140, justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
+  iconArea: {
+    width: 140,
+    height: 140,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 4,
+  },
   iconRing: {
-    width: 112, height: 112, borderRadius: 56,
-    borderWidth: 3, justifyContent: 'center', alignItems: 'center',
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    borderWidth: 3,
+    justifyContent: "center",
+    alignItems: "center",
   },
   iconCircle: {
-    width: 88, height: 88, borderRadius: 44,
-    justifyContent: 'center', alignItems: 'center',
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    justifyContent: "center",
+    alignItems: "center",
   },
   particle: {
-    position: 'absolute', width: 10, height: 10, borderRadius: 5,
-    left: 65, top: 65,
+    position: "absolute",
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    left: 65,
+    top: 65,
   },
   newTag: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  newTagText: {
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  badgeName: {
+    fontSize: 26,
+    fontWeight: "900",
+    color: C.text,
+    textAlign: "center",
+  },
+  badgeDesc: {
+    fontSize: 14,
+    color: C.textSub,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 6,
+  },
+  btn: {
+    width: "100%",
+    paddingVertical: 16,
+    borderRadius: 18,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  btnText: { fontSize: 18, fontWeight: "900", color: "#fff" },
+});
+
+const grantModal = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 32,
+  },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 28,
+    alignItems: "center",
+    width: "100%",
+    gap: 12,
+    ...SHADOW.lg,
+  },
+  iconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#fffbeb",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  title: { fontSize: 22, fontWeight: "900", color: NAVY },
+  msg: { fontSize: 14, color: C.textSub, textAlign: "center", lineHeight: 22 },
+  btnRow: { flexDirection: "row", gap: 10, width: "100%", marginTop: 4 },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+    backgroundColor: "#F5F5F8",
+    borderWidth: 1.5,
+    borderColor: "#E5E7EB",
+  },
+  cancelText: { fontSize: 15, fontWeight: "700", color: C.textSub },
+  confirmBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: NAVY,
+  },
+  confirmText: { fontSize: 15, fontWeight: "800", color: "#fff" },
+});
+
+const dex = StyleSheet.create({
+  backdrop: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: "#fff", borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    paddingHorizontal: 20, paddingTop: 14, paddingBottom: 40,
+  },
+  handle: {
+    width: 40, height: 4, borderRadius: 2, backgroundColor: "#D1D5DB",
+    alignSelf: "center", marginBottom: 18,
+  },
+  title: { fontSize: 20, fontWeight: "900", color: NAVY, textAlign: "center" },
+  sub: { fontSize: 13, color: C.textSub, textAlign: "center", marginTop: 4, marginBottom: 20 },
+
+  grid: { flexDirection: "row", gap: 10 },
+  cell: {
+    flex: 1, borderRadius: 18, borderWidth: 2, borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB", padding: 12,
+    alignItems: "center", gap: 6, overflow: "hidden",
+  },
+  cellUnlocked: { borderColor: "#fde68a", backgroundColor: "#fffbeb" },
+  cellCurrent: { borderColor: GOLD, borderWidth: 2.5 },
+
+  currentBadge: {
+    backgroundColor: GOLD, borderRadius: 8,
+    paddingHorizontal: 8, paddingVertical: 2, marginBottom: 2,
+  },
+  currentBadgeText: { fontSize: 9, fontWeight: "900", color: NAVY },
+
+  imgWrap: { width: 80, height: 80, position: "relative" },
+  img: { width: 80, height: 80 },
+  silhouette: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(10,8,15,0.88)",
+    borderRadius: 8,
+  },
+
+  stageName: { fontSize: 13, fontWeight: "800", color: NAVY, textAlign: "center" },
+  stageNameLocked: { color: "#9CA3AF" },
+  stageDesc: { fontSize: 10, color: C.textSub, textAlign: "center", lineHeight: 14 },
+
+  lockRow: { flexDirection: "row", alignItems: "center", gap: 3 },
+  lockText: { fontSize: 10, fontWeight: "700", color: "#9CA3AF" },
+
+  unlockedTag: {
+    flexDirection: "row", alignItems: "center", gap: 3,
+    backgroundColor: "#d1fae5", borderRadius: 8,
+    paddingHorizontal: 8, paddingVertical: 3,
+  },
+  unlockedText: { fontSize: 10, fontWeight: "800", color: "#065f46" },
+});
+
+const egg = StyleSheet.create({
+  backdrop: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.65)",
+    justifyContent: "center", alignItems: "center", padding: 28,
+  },
+  card: {
+    backgroundColor: "#fff", borderRadius: 28, padding: 28,
+    alignItems: "center", width: "100%", gap: 10,
+  },
+  title: { fontSize: 22, fontWeight: "900", color: NAVY, textAlign: "center" },
+  sub: { fontSize: 13, color: C.textSub, textAlign: "center" },
+  eggRow: { flexDirection: "row", gap: 10, marginTop: 4 },
+  eggCell: {
+    flex: 1, borderRadius: 18, borderWidth: 2, borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB", paddingVertical: 14,
+    alignItems: "center", gap: 6, position: "relative",
+  },
+  eggCheck: {
+    position: "absolute", top: 6, right: 6,
+    width: 18, height: 18, borderRadius: 9,
+    justifyContent: "center", alignItems: "center",
+  },
+  eggLabel: { fontSize: 12, fontWeight: "700", color: "#6B7280" },
+  chooseBtn: {
+    width: "100%", paddingVertical: 16, borderRadius: 16,
+    alignItems: "center", backgroundColor: NAVY, marginTop: 4,
+  },
+  chooseBtnDisabled: { backgroundColor: "#9CA3AF" },
+  chooseBtnText: { fontSize: 16, fontWeight: "800", color: "#fff" },
+  confirmCard: {
+    backgroundColor: "#fff", borderRadius: 24, padding: 28,
+    alignItems: "center", gap: 10, margin: 28,
+  },
+  confirmTitle: { fontSize: 20, fontWeight: "900", color: NAVY },
+  confirmSub: { fontSize: 13, color: C.textSub, textAlign: "center", lineHeight: 20 },
+  btnRow: { flexDirection: "row", gap: 10, width: "100%", marginTop: 4 },
+  cancelBtn: {
+    flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: "center",
+    backgroundColor: "#F5F5F8", borderWidth: 1.5, borderColor: "#E5E7EB",
+  },
+  cancelText: { fontSize: 15, fontWeight: "700", color: C.textSub },
+  confirmBtn: {
+    flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: "center",
+  },
+  confirmText: { fontSize: 15, fontWeight: "800", color: "#fff" },
+});
+
+const congrats = StyleSheet.create({
+  backdrop: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center", alignItems: "center", padding: 28,
+  },
+  card: {
+    backgroundColor: "#fff", borderRadius: 28, padding: 28,
+    alignItems: "center", width: "100%", gap: 10,
+  },
+  ring: {
+    width: 140, height: 140, borderRadius: 70,
+    borderWidth: 3, justifyContent: "center", alignItems: "center",
+    marginBottom: 4,
+  },
+  circle: {
+    width: 116, height: 116, borderRadius: 58,
+    justifyContent: "center", alignItems: "center",
+  },
+  tag: {
+    flexDirection: "row", alignItems: "center", gap: 5,
     paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20,
   },
-  newTagText: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
-  badgeName: { fontSize: 26, fontWeight: '900', color: C.text, textAlign: 'center' },
-  badgeDesc: { fontSize: 14, color: C.textSub, textAlign: 'center', lineHeight: 20, marginBottom: 6 },
-  btn: { width: '100%', paddingVertical: 16, borderRadius: 18, alignItems: 'center', marginTop: 4 },
-  btnText: { fontSize: 18, fontWeight: '900', color: '#fff' },
+  tagText: { fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.6 },
+  title: { fontSize: 26, fontWeight: "900", color: NAVY },
+  msg: { fontSize: 14, color: C.textSub, textAlign: "center", lineHeight: 22, marginBottom: 4 },
+  btn: { width: "100%", paddingVertical: 16, borderRadius: 18, alignItems: "center" },
+  btnText: { fontSize: 18, fontWeight: "900", color: "#fff" },
 });

@@ -252,6 +252,9 @@ export default function Dashboard() {
           <Text style={s.logoText}>EmotiSketch</Text>
         </View>
         <View style={s.topBarRight}>
+          <TouchableOpacity style={s.iconBtn} onPress={() => router.push('/rewards')}>
+            <Ionicons name="gift-outline" size={19} color="rgba(255,255,255,0.75)" />
+          </TouchableOpacity>
           <TouchableOpacity style={s.iconBtn} onPress={() => router.push('/messages')}>
             <Ionicons name="paper-plane-outline" size={19} color="rgba(255,255,255,0.75)" />
             {unreadMsgCount > 0 && (

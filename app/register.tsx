@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
-  ScrollView, StatusBar,
+  ScrollView, StatusBar, Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -18,6 +18,7 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const handleRegister = async () => {
     if (!firstName.trim()) {
@@ -35,35 +36,30 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
+      const full_name = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
+
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
-        options: { data: { full_name: fullName, role: 'parent' } },
+        options: {
+          data: { full_name, role: 'parent' },
+        },
       });
 
       if (error) throw error;
+      if (!data.user?.id) throw new Error('Account created but user ID missing. Please try signing in.');
 
-      const userId = data.user?.id;
-      if (!userId) throw new Error('Account created but user ID missing. Please try signing in.');
-
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: userId,
-        full_name: fullName,
-        role: 'parent',
-      });
-
-      if (profileError) throw profileError;
-
+      // Upsert profile as fallback in case trigger RLS blocks the insert
       if (data.session) {
-        router.replace('/');
-      } else {
-        Alert.alert(
-          'Verify your email',
-          'A confirmation link has been sent to your email. Please verify before signing in.',
-          [{ text: 'Go to Login', onPress: () => router.replace('/login') }],
+        await supabase.from('profiles').upsert(
+          { id: data.user.id, full_name, role: 'parent', email: email.trim() },
+          { onConflict: 'id' },
         );
+        // Sign out so user must log in manually after seeing the success modal
+        await supabase.auth.signOut();
       }
+
+      setShowSuccess(true);
     } catch (e: any) {
       Alert.alert('Registration failed', e.message ?? 'Something went wrong. Please try again.');
     } finally {
@@ -77,6 +73,30 @@ export default function RegisterScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar barStyle="dark-content" backgroundColor="#F7F7F5" />
+
+      {/* Success Modal */}
+      <Modal visible={showSuccess} transparent animationType="fade">
+        <View style={s.overlay}>
+          <View style={s.modal}>
+            <View style={s.iconCircle}>
+              <Ionicons name="checkmark-circle" size={64} color="#22c55e" />
+            </View>
+            <Text style={s.modalTitle}>Registration Successful!</Text>
+            <Text style={s.modalMsg}>Your account has been created. Please log in to continue.</Text>
+            <TouchableOpacity
+              style={s.confirmBtn}
+              onPress={() => {
+                setShowSuccess(false);
+                router.replace('/login');
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={s.confirmBtnText}>Go to Login</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
 
         {/* Floating card */}
@@ -241,4 +261,28 @@ const s = StyleSheet.create({
   loginRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   loginText: { fontSize: 14, color: '#6b7280' },
   loginLink: { fontSize: 14, color: NAVY, fontWeight: '700' },
+
+  // Success modal
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32,
+  },
+  modal: {
+    backgroundColor: '#fff', borderRadius: 24, padding: 32,
+    alignItems: 'center', width: '100%',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15, shadowRadius: 24, elevation: 10,
+  },
+  iconCircle: {
+    width: 96, height: 96, borderRadius: 48,
+    backgroundColor: '#f0fdf4', justifyContent: 'center', alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: { fontSize: 22, fontWeight: '800', color: NAVY, marginBottom: 10, textAlign: 'center' },
+  modalMsg: { fontSize: 14, color: '#6b7280', textAlign: 'center', lineHeight: 22, marginBottom: 28 },
+  confirmBtn: {
+    backgroundColor: NAVY, borderRadius: 12,
+    paddingVertical: 14, paddingHorizontal: 40, alignItems: 'center', width: '100%',
+  },
+  confirmBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

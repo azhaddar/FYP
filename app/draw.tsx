@@ -162,7 +162,6 @@ export default function UploadScreen() {
           onPress={() => router.canGoBack() ? router.back() : router.replace('/dashboard')}
         >
           <Ionicons name="chevron-back" size={22} color="#fff" />
-          <Text style={st.backText}>Back</Text>
         </TouchableOpacity>
         <View style={st.headerCenter}>
           <Text style={st.headerTitle}>Upload Drawing</Text>
@@ -289,8 +288,11 @@ const st = StyleSheet.create({
     paddingTop: 52, paddingBottom: 16, paddingHorizontal: 16,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  backBtn:      { flexDirection: 'row', alignItems: 'center', gap: 2, minWidth: 70 },
-  backText:     { fontSize: 15, color: '#fff', fontWeight: '600' },
+  backBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center', alignItems: 'center', flexShrink: 0, alignSelf: 'center',
+  },
   headerCenter: { flex: 1, alignItems: 'center' },
   headerTitle:  { fontSize: 17, fontWeight: '800', color: '#fff' },
   headerSub:    { fontSize: 13, color: 'rgba(255,255,255,0.65)', marginTop: 2 },

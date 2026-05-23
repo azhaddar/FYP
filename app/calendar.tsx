@@ -80,6 +80,7 @@ export default function CalendarScreen() {
       setChildren(kids);
       const firstId = params.childId ?? kids[0]?.id ?? null;
       setSelectedChildId(firstId);
+      if (!firstId) setLoading(false);
     })();
   }, []);
 

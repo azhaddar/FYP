@@ -117,8 +117,15 @@ export default function MessagesScreen() {
     <View style={styles.root}>
       <View style={[styles.header, false]}>
         <View style={styles.headerInner}>
-          <Text style={[styles.headerTitle, false]}>Messages</Text>
-          <Text style={[styles.headerSub, false]}>Chat with your child's therapist</Text>
+          <View style={styles.headerRow}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
+              <Ionicons name="chevron-back" size={22} color="#fff" />
+            </TouchableOpacity>
+            <View>
+              <Text style={[styles.headerTitle, false]}>Messages</Text>
+              <Text style={[styles.headerSub, false]}>Chat with your child's therapist</Text>
+            </View>
+          </View>
         </View>
       </View>
 
@@ -202,6 +209,12 @@ const styles = StyleSheet.create({
   header: { backgroundColor: NAVY, paddingTop: 52, paddingBottom: 0 },
   headerWide:      { backgroundColor: '#fff', paddingTop: 0, borderBottomWidth: 1, borderBottomColor: '#EBEBEB' },
   headerInner: { paddingHorizontal: 24, paddingBottom: 14 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  backBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center', alignItems: 'center', flexShrink: 0, alignSelf: 'center',
+  },
   headerTitle:     { fontSize: 26, fontWeight: '800', color: C.white },
   headerTitleWide: { color: NAVY },
   headerSub:       { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 3 },

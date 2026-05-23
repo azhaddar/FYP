@@ -128,7 +128,6 @@ export default function ResultScreen() {
     emotion: string; scores: string; preMood: string; therapistMessage: string; patientId: string; patientName: string;
   }>();
   const router = useRouter();
-  const { width } = useWindowDimensions();
 
   const dominantEmotion = (emotion as Emotion) ?? 'happy';
   const data = EMOTION_DATA[dominantEmotion];
