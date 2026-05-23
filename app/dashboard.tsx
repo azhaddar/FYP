@@ -28,7 +28,7 @@ export default function Dashboard() {
   const router = useRouter();
   const [showNotif, setShowNotif] = useState(false);
   const {
-    notifications, unreadCount, markAllRead, markOneRead, dismissItem,
+    notifications, unreadCount, unreadMsgCount, markAllRead, markOneRead, dismissItem,
     loading: notifLoading,
   } = useNotifications(profile?.id ?? '');
 
@@ -254,6 +254,11 @@ export default function Dashboard() {
         <View style={s.topBarRight}>
           <TouchableOpacity style={s.iconBtn} onPress={() => router.push('/messages')}>
             <Ionicons name="paper-plane-outline" size={19} color="rgba(255,255,255,0.75)" />
+            {unreadMsgCount > 0 && (
+              <View style={s.notifBadge}>
+                <Text style={s.notifBadgeText}>{unreadMsgCount > 9 ? '9+' : unreadMsgCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity style={s.iconBtn} onPress={() => setShowNotif(v => !v)}>
             <Ionicons name="notifications-outline" size={19} color="rgba(255,255,255,0.75)" />

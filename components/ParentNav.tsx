@@ -16,7 +16,7 @@ const TABS: { icon: IoniconName; activeIcon: IoniconName; path: string; center?:
   { icon: 'home-outline',      activeIcon: 'home',        path: '/dashboard' },
   { icon: 'bar-chart-outline', activeIcon: 'bar-chart',   path: '/activity'  },
   { icon: 'pencil-outline',    activeIcon: 'pencil',      path: '__upload',  center: true },
-  { icon: 'calendar-outline',  activeIcon: 'calendar',    path: '/rewards'   },
+  { icon: 'calendar-outline',  activeIcon: 'calendar',    path: '/calendar'  },
   { icon: 'person-outline',    activeIcon: 'person',      path: '/settings'  },
 ];
 

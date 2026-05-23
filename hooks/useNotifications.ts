@@ -21,6 +21,7 @@ export function useNotifications(guardianId: string) {
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0);
 
   const readKey    = `notif_read_${guardianId}`;
   const dismissKey = `notif_dismissed_${guardianId}`;
@@ -138,6 +139,8 @@ export function useNotifications(guardianId: string) {
           };
         });
 
+      setUnreadMsgCount(msgs?.length ?? 0);
+
       const msgItems: AppNotification[] = (msgs ?? []).map((m: any) => ({
         id: `msg_${m.id}`,
         type: 'message' as const,
@@ -191,5 +194,5 @@ export function useNotifications(guardianId: string) {
     .map(n => ({ ...n, read: readIds.has(n.id) }));
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  return { notifications, unreadCount, markAllRead, markOneRead, dismissItem, refresh, loading };
+  return { notifications, unreadCount, unreadMsgCount, markAllRead, markOneRead, dismissItem, refresh, loading };
 }
