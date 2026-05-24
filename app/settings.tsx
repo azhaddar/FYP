@@ -98,7 +98,7 @@ export default function ProfileScreen() {
   const accountRows: SettingRow[] = [
     { icon: 'person-outline',       label: 'Edit Profile',     sub: 'Update your name and details', chevron: true },
     { icon: 'notifications-outline', label: 'Notifications',   sub: 'Manage alert preferences',     chevron: true },
-    { icon: 'shield-checkmark-outline', label: 'Security',    sub: 'Password and account security', chevron: true },
+    { icon: 'shield-checkmark-outline', label: 'Security',    sub: 'Password and account security', chevron: true, onPress: () => router.push('/change-password' as any) },
     { icon: 'help-circle-outline',  label: 'Help & Support',   sub: 'FAQs and contact info',        chevron: true },
   ];
 
