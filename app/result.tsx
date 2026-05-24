@@ -88,21 +88,22 @@ function BreathingExercise({ color }: { color: string }) {
   );
 }
 
-function EmotionBar({ emotion, pct, isTop }: { emotion: Emotion; pct: number; isTop: boolean }) {
+function EmotionBar({ emotion, pts, maxScore, isTop }: { emotion: Emotion; pts: number; maxScore: number; isTop: boolean }) {
   const anim = useRef(new Animated.Value(0)).current;
   const ec = EMOTION_COLORS[emotion];
+  const safeMax = maxScore > 0 ? maxScore : 1;
 
   useEffect(() => {
     Animated.timing(anim, {
-      toValue: pct,
+      toValue: pts,
       duration: 900,
       delay: EMOTION_ORDER.indexOf(emotion) * 120,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
-  }, [pct]);
+  }, [pts]);
 
-  const width = anim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] });
+  const width = anim.interpolate({ inputRange: [0, safeMax], outputRange: ['0%', '100%'] });
 
   return (
     <View style={barStyles.row}>
@@ -117,7 +118,7 @@ function EmotionBar({ emotion, pct, isTop }: { emotion: Emotion; pct: number; is
         ]} />
       </View>
       <Text style={[barStyles.pct, isTop && { color: ec.text, fontWeight: '800' }]}>
-        {pct}%
+        {pts} pts
       </Text>
     </View>
   );
@@ -138,7 +139,7 @@ export default function ResultScreen() {
       try { return JSON.parse(scoresParam); } catch {}
     }
     const fallback = { happy: 0, sad: 0, angry: 0, anxious: 0 };
-    fallback[dominantEmotion] = 100;
+    fallback[dominantEmotion] = 50;
     return fallback;
   })();
 
@@ -210,19 +211,23 @@ export default function ResultScreen() {
           </View>
         ) : null}
 
-        {/* Emotion percentage breakdown */}
+        {/* Emotion signal intensity breakdown */}
         <View style={styles.scoresCard}>
-          <Text style={styles.scoresTitle}>Emotion Breakdown</Text>
-          <Text style={styles.scoresSubtitle}>Based on your drawing's colors, shapes, and themes</Text>
+          <Text style={styles.scoresTitle}>Signal Intensity</Text>
+          <Text style={styles.scoresSubtitle}>Accumulated signal points from your drawing</Text>
           <View style={styles.barsContainer}>
-            {EMOTION_ORDER.map(e => (
-              <EmotionBar
-                key={e}
-                emotion={e}
-                pct={scores[e] ?? 0}
-                isTop={e === dominantEmotion}
-              />
-            ))}
+            {(() => {
+              const maxScore = Math.max(...EMOTION_ORDER.map(e => scores[e] ?? 0), 1);
+              return EMOTION_ORDER.map(e => (
+                <EmotionBar
+                  key={e}
+                  emotion={e}
+                  pts={scores[e] ?? 0}
+                  maxScore={maxScore}
+                  isTop={e === dominantEmotion}
+                />
+              ));
+            })()}
           </View>
           <Text style={styles.scoresDisclaimer}>
             Emotions are complex — this is a guide, not a diagnosis.

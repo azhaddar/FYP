@@ -24,21 +24,22 @@ function formatDateTime(iso: string) {
   };
 }
 
-function EmotionBar({ emotion, pct, isTop }: { emotion: string; pct: number; isTop: boolean }) {
+function EmotionBar({ emotion, pts, maxScore, isTop }: { emotion: string; pts: number; maxScore: number; isTop: boolean }) {
   const anim = useRef(new Animated.Value(0)).current;
   const ec = EMOTION_COLORS[emotion];
+  const safeMax = maxScore > 0 ? maxScore : 1;
 
   useEffect(() => {
     Animated.timing(anim, {
-      toValue: pct,
+      toValue: pts,
       duration: 800,
       delay: EMOTION_ORDER.indexOf(emotion as any) * 100,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
-  }, [pct]);
+  }, [pts]);
 
-  const width = anim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] });
+  const width = anim.interpolate({ inputRange: [0, safeMax], outputRange: ['0%', '100%'] });
 
   return (
     <View style={barStyles.row}>
@@ -48,7 +49,7 @@ function EmotionBar({ emotion, pct, isTop }: { emotion: string; pct: number; isT
       <View style={barStyles.track}>
         <Animated.View style={[barStyles.fill, { width, backgroundColor: ec.text }, isTop && barStyles.fillTop]} />
       </View>
-      <Text style={[barStyles.pct, isTop && { color: ec.text, fontWeight: '800' }]}>{pct}%</Text>
+      <Text style={[barStyles.pct, isTop && { color: ec.text, fontWeight: '800' }]}>{pts} pts</Text>
     </View>
   );
 }
@@ -240,20 +241,24 @@ export default function SketchDetailScreen() {
           </View>
         ) : null}
 
-        {/* Emotion breakdown */}
+        {/* Emotion signal intensity */}
         {scores ? (
           <View style={styles.scoresCard}>
-            <Text style={styles.scoresTitle}>Emotion Breakdown</Text>
-            <Text style={styles.scoresSub}>Based on drawing colors, shapes, and themes</Text>
+            <Text style={styles.scoresTitle}>Signal Intensity</Text>
+            <Text style={styles.scoresSub}>Accumulated signal points from the drawing</Text>
             <View style={styles.barsWrap}>
-              {EMOTION_ORDER.map(e => (
-                <EmotionBar
-                  key={e}
-                  emotion={e}
-                  pct={scores[e] ?? 0}
-                  isTop={e === sketch.emotion}
-                />
-              ))}
+              {(() => {
+                const maxScore = Math.max(...EMOTION_ORDER.map(e => scores[e] ?? 0), 1);
+                return EMOTION_ORDER.map(e => (
+                  <EmotionBar
+                    key={e}
+                    emotion={e}
+                    pts={scores[e] ?? 0}
+                    maxScore={maxScore}
+                    isTop={e === sketch.emotion}
+                  />
+                ));
+              })()}
             </View>
           </View>
         ) : null}
