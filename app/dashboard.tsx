@@ -32,6 +32,8 @@ export default function Dashboard() {
     loading: notifLoading,
   } = useNotifications(profile?.id ?? '');
 
+  const pendingSessionCount = notifications.filter(n => n.type === 'schedule' && !n.read).length;
+
   const [children, setChildren]           = useState<Patient[]>([]);
   const [lastEmotions, setLastEmotions]   = useState<Record<string, string>>({});
   const [negativeStreaks, setNegativeStreaks] = useState<Record<string, boolean>>({});
@@ -298,6 +300,11 @@ export default function Dashboard() {
         <View style={s.topBarRight}>
           <TouchableOpacity style={s.iconBtn} onPress={() => router.push('/calendar' as any)}>
             <Ionicons name="calendar-outline" size={19} color="rgba(255,255,255,0.75)" />
+            {pendingSessionCount > 0 && (
+              <View style={s.notifBadge}>
+                <Text style={s.notifBadgeText}>{pendingSessionCount > 9 ? '9+' : pendingSessionCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity style={s.iconBtn} onPress={() => router.push('/messages')}>
             <Ionicons name="paper-plane-outline" size={19} color="rgba(255,255,255,0.75)" />
