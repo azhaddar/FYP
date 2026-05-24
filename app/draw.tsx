@@ -30,12 +30,20 @@ const PROMPT_OPTIONS = [
     label: "Draw Yourself",
     icon: "person-outline" as const,
     desc: "A self-portrait or figure drawing",
+    badge: null,
+    elements: null,
   },
   {
     key: "house",
-    label: "Draw Your Home",
+    label: "House, Tree & Person",
     icon: "home-outline" as const,
-    desc: "A drawing of the house",
+    desc: "Draw all three on the same page",
+    badge: "HTP Test",
+    elements: [
+      { icon: "home-outline" as const,   label: "House"  },
+      { icon: "leaf-outline" as const,   label: "Tree"   },
+      { icon: "person-outline" as const, label: "Person" },
+    ],
   },
 ];
 
@@ -246,30 +254,61 @@ export default function UploadScreen() {
                 activeOpacity={0.8}
                 disabled={analyzing}
               >
-                {active && (
-                  <View style={st.promptCheck}>
+                {/* Check + HTP badge row */}
+                <View style={st.promptTopRow}>
+                  {opt.badge ? (
+                    <View style={[st.htpBadge, active && st.htpBadgeActive]}>
+                      <Text style={[st.htpBadgeText, active && st.htpBadgeTextActive]}>
+                        {opt.badge}
+                      </Text>
+                    </View>
+                  ) : <View />}
+                  {active && (
                     <Ionicons name="checkmark-circle" size={16} color={NAVY} />
-                  </View>
-                )}
-                <View
-                  style={[st.promptIconWrap, active && st.promptIconWrapActive]}
-                >
-                  <Ionicons
-                    name={opt.icon}
-                    size={22}
-                    color={active ? NAVY : PRIMARY}
-                  />
+                  )}
                 </View>
+
+                <View style={[st.promptIconWrap, active && st.promptIconWrapActive]}>
+                  <Ionicons name={opt.icon} size={22} color={active ? NAVY : PRIMARY} />
+                </View>
+
                 <Text style={[st.promptLabel, active && st.promptLabelActive]}>
                   {opt.label}
                 </Text>
                 <Text style={[st.promptDesc, active && st.promptDescActive]}>
                   {opt.desc}
                 </Text>
+
+                {/* Element icons — only for HTP card */}
+                {opt.elements && (
+                  <View style={st.elementsRow}>
+                    {opt.elements.map((el, i) => (
+                      <React.Fragment key={el.label}>
+                        {i > 0 && <Text style={st.elementPlus}>+</Text>}
+                        <View style={[st.elementChip, active && st.elementChipActive]}>
+                          <Ionicons name={el.icon} size={11} color={active ? '#92400E' : '#6B7280'} />
+                          <Text style={[st.elementChipText, active && st.elementChipTextActive]}>
+                            {el.label}
+                          </Text>
+                        </View>
+                      </React.Fragment>
+                    ))}
+                  </View>
+                )}
               </TouchableOpacity>
             );
           })}
         </View>
+
+        {/* Contextual tip when HTP is selected */}
+        {selectedPrompt === 'house' && (
+          <View style={st.htpTip}>
+            <Ionicons name="information-circle" size={16} color="#92400E" style={{ flexShrink: 0, marginTop: 1 }} />
+            <Text style={st.htpTipText}>
+              Draw all three elements — a <Text style={st.htpTipBold}>house</Text>, a <Text style={st.htpTipBold}>tree</Text>, and a <Text style={st.htpTipBold}>person</Text> — on the same sheet of paper before taking a photo.
+            </Text>
+          </View>
+        )}
 
         {/* Photo section */}
         <Text style={[st.sectionLabel, { marginTop: 28 }]}>
@@ -433,6 +472,28 @@ const st = StyleSheet.create({
   promptDesc: { fontSize: 11, color: "#6B7280", lineHeight: 16 },
   promptDescActive: { color: "#92400E" },
   promptCheck: { position: "absolute", top: 10, right: 10 },
+
+  // Top row inside card (badge + checkmark)
+  promptTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
+
+  // HTP badge
+  htpBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8, backgroundColor: "#EEF0FF" },
+  htpBadgeActive: { backgroundColor: "#FDE68A" },
+  htpBadgeText: { fontSize: 9, fontWeight: "800", color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.5 },
+  htpBadgeTextActive: { color: "#92400E" },
+
+  // Element chips row (House + Tree + Person)
+  elementsRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2, flexWrap: "wrap" },
+  elementPlus: { fontSize: 10, color: "#9CA3AF", fontWeight: "700" },
+  elementChip: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 7, backgroundColor: "#F3F4F6" },
+  elementChipActive: { backgroundColor: "#FEF3C7" },
+  elementChipText: { fontSize: 10, fontWeight: "600", color: "#6B7280" },
+  elementChipTextActive: { color: "#92400E" },
+
+  // HTP contextual tip banner
+  htpTip: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "#FFFBEB", borderWidth: 1, borderColor: "#FDE68A", borderRadius: 12, padding: 12, marginTop: 12 },
+  htpTipText: { flex: 1, fontSize: 12, color: "#78350F", lineHeight: 18 },
+  htpTipBold: { fontWeight: "800", color: "#92400E" },
 
   // ── Photo section ──────────────────────────────────────────────────────────
   photoActions: { gap: 12 },
