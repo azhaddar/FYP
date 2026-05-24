@@ -225,7 +225,7 @@ export default function UploadScreen() {
           <Text style={st.headerTitle}>Upload Drawing</Text>
           <Text style={st.headerSub}>{firstName}</Text>
         </View>
-        <View style={{ width: 70 }} />
+        <View style={{ width: 36 }} />
       </View>
 
       <ScrollView

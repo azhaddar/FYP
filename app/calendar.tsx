@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../lib/supabaseClient';
 import { ParentShell } from '../components/ParentShell';
 
@@ -20,19 +20,22 @@ const EMOTION_DOTS: Record<string, { key: string; color: string }> = {
 };
 
 const EVENT_COLOR: Record<string, string> = {
-  appointment:     '#10B981',
-  homework_prompt: '#F59E0B',
-  check_in:        '#3B82F6',
+  appointment:      '#10B981',
+  homework_prompt:  '#F59E0B',
+  check_in:         '#3B82F6',
+  drawing_schedule: '#7C3AED',
 };
 const EVENT_LABEL: Record<string, string> = {
-  appointment:     'Appointment',
-  homework_prompt: 'Homework',
-  check_in:        'Check-in',
+  appointment:      'Appointment',
+  homework_prompt:  'Homework',
+  check_in:         'Check-in',
+  drawing_schedule: 'Drawing Session',
 };
 const EVENT_ICON: Record<string, string> = {
-  appointment:     'medical-outline',
-  homework_prompt: 'book-outline',
-  check_in:        'heart-outline',
+  appointment:      'medical-outline',
+  homework_prompt:  'book-outline',
+  check_in:         'heart-outline',
+  drawing_schedule: 'color-palette-outline',
 };
 
 interface Child {
@@ -47,6 +50,7 @@ interface ChildEvent {
   description?: string | null;
   event_type: string;
   scheduled_at: string;
+  parent_status?: string | null;
 }
 
 interface SketchEntry {
@@ -92,7 +96,7 @@ export default function CalendarScreen() {
       const [{ data: evts }, { data: sk }] = await Promise.all([
         supabase
           .from('child_events')
-          .select('id, child_id, title, description, event_type, scheduled_at')
+          .select('id, child_id, title, description, event_type, scheduled_at, parent_status')
           .eq('child_id', childId)
           .order('scheduled_at', { ascending: true }),
         supabase
@@ -280,23 +284,65 @@ export default function CalendarScreen() {
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
+const STATUS_BADGE: Record<string, { label: string; bg: string; text: string }> = {
+  pending:  { label: 'Pending',  bg: '#FFFBEB', text: '#92400E' },
+  accepted: { label: 'Accepted', bg: '#ECFDF5', text: '#065F46' },
+  rejected: { label: 'Rejected', bg: '#FEF2F2', text: '#991B1B' },
+};
+
 function ScheduledEventCard({ event }: { event: ChildEvent }) {
-  const color = EVENT_COLOR[event.event_type] ?? '#10B981';
-  const label = EVENT_LABEL[event.event_type] ?? event.event_type;
-  const icon  = EVENT_ICON[event.event_type]  ?? 'calendar-outline';
-  const time  = new Date(event.scheduled_at).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
-  return (
-    <View style={[card.wrap, { borderLeftColor: color }]}>
+  const router = useRouter();
+  const color  = EVENT_COLOR[event.event_type] ?? '#10B981';
+  const label  = EVENT_LABEL[event.event_type] ?? event.event_type;
+  const icon   = EVENT_ICON[event.event_type]  ?? 'calendar-outline';
+  const time   = new Date(event.scheduled_at).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
+
+  const isDrawing = event.event_type === 'drawing_schedule';
+  const badge = isDrawing ? STATUS_BADGE[event.parent_status ?? 'pending'] : null;
+
+  const inner = (
+    <>
       <View style={[card.icon, { backgroundColor: color + '22' }]}>
         <Ionicons name={icon as any} size={18} color={color} />
       </View>
       <View style={card.body}>
-        <Text style={card.title}>{event.title}</Text>
+        <View style={card.titleRow}>
+          <Text style={card.title}>{event.title}</Text>
+          {badge && (
+            <View style={[card.badge, { backgroundColor: badge.bg }]}>
+              <Text style={[card.badgeText, { color: badge.text }]}>{badge.label}</Text>
+            </View>
+          )}
+        </View>
         <Text style={card.meta}>{label} · {time}</Text>
         {event.description ? <Text style={card.desc}>{event.description}</Text> : null}
+        {isDrawing && event.parent_status === 'pending' && (
+          <Text style={card.tapHint}>Tap to accept or reject</Text>
+        )}
       </View>
-    </View>
+    </>
   );
+
+  if (isDrawing) {
+    return (
+      <TouchableOpacity
+        style={[card.wrap, { borderLeftColor: color }]}
+        activeOpacity={0.75}
+        onPress={() => router.push({
+          pathname: '/schedule-request',
+          params: {
+            eventId:      event.id,
+            childId:      event.child_id,
+            selectedDate: event.scheduled_at.split('T')[0],
+          },
+        } as any)}
+      >
+        {inner}
+      </TouchableOpacity>
+    );
+  }
+
+  return <View style={[card.wrap, { borderLeftColor: color }]}>{inner}</View>;
 }
 
 function DrawingHistoryCard({ sketch }: { sketch: SketchEntry }) {
@@ -374,7 +420,11 @@ const card = StyleSheet.create({
   },
   icon: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1 },
-  title:{ fontSize: 14, fontWeight: '700', color: '#1F2937' },
-  meta: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-  desc: { fontSize: 12, color: '#9CA3AF', marginTop: 4, lineHeight: 18 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  title:    { fontSize: 14, fontWeight: '700', color: '#1F2937' },
+  badge:    { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
+  badgeText:{ fontSize: 10, fontWeight: '700' },
+  meta:     { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  desc:     { fontSize: 12, color: '#9CA3AF', marginTop: 4, lineHeight: 18 },
+  tapHint:  { fontSize: 11, color: '#7C3AED', marginTop: 4, fontWeight: '600' },
 });

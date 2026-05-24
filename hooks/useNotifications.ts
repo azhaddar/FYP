@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabaseClient';
 
-export type NotifType = 'sketch' | 'alert' | 'message' | 'status';
+export type NotifType = 'sketch' | 'alert' | 'message' | 'status' | 'schedule';
 
 export interface AppNotification {
   id: string;
@@ -58,7 +58,7 @@ export function useNotifications(guardianId: string) {
 
       const since14d = new Date(Date.now() - 14 * 86400000).toISOString();
 
-      const [{ data: sketches }, { data: msgs }, { data: allRecent }] = await Promise.all([
+      const [{ data: sketches }, { data: msgs }, { data: allRecent }, { data: scheduleEvents }] = await Promise.all([
         supabase
           .from('sketches')
           .select('id, patient_id, emotion, created_at, status, reviewed_at, verified_at')
@@ -82,6 +82,13 @@ export function useNotifications(guardianId: string) {
           .in('patient_id', childIds)
           .order('created_at', { ascending: false })
           .limit(childIds.length * 5),
+        supabase
+          .from('child_events')
+          .select('id, title, scheduled_at, child_id, therapist_id')
+          .in('child_id', childIds)
+          .eq('event_type', 'drawing_schedule')
+          .eq('parent_status', 'pending')
+          .order('scheduled_at', { ascending: true }),
       ]);
 
       const alertItems: AppNotification[] = [];
@@ -151,7 +158,38 @@ export function useNotifications(guardianId: string) {
         meta: { senderId: m.sender_id },
       }));
 
-      const all = [...alertItems, ...statusItems, ...sketchItems, ...msgItems];
+      // Fetch therapist names for pending drawing sessions
+      let scheduleItems: AppNotification[] = [];
+      if (scheduleEvents?.length) {
+        const schedTherapistIds = [...new Set(scheduleEvents.map(e => e.therapist_id))];
+        const { data: therapistProfiles } = await supabase
+          .from('profiles').select('id, full_name').in('id', schedTherapistIds);
+        const therapistNameOf: Record<string, string> = {};
+        (therapistProfiles ?? []).forEach(t => { therapistNameOf[t.id] = t.full_name; });
+
+        scheduleItems = scheduleEvents.map(ev => {
+          const childFirst = nameOf[ev.child_id] ?? 'your child';
+          const therapistName = therapistNameOf[ev.therapist_id] ?? 'Your therapist';
+          const dateLabel = new Date(ev.scheduled_at).toLocaleDateString('en-MY', {
+            weekday: 'short', day: 'numeric', month: 'short',
+          });
+          return {
+            id: `schedule_${ev.id}`,
+            type: 'schedule' as const,
+            title: `Drawing session scheduled for ${childFirst}`,
+            body: `${therapistName} · ${dateLabel} · Tap to respond`,
+            created_at: ev.scheduled_at,
+            read: false,
+            meta: {
+              eventId:      ev.id,
+              childId:      ev.child_id,
+              selectedDate: ev.scheduled_at.split('T')[0],
+            },
+          };
+        });
+      }
+
+      const all = [...scheduleItems, ...alertItems, ...statusItems, ...sketchItems, ...msgItems];
       all.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setItems(all);
     } finally {

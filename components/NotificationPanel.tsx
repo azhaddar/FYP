@@ -9,10 +9,11 @@ import { C, SHADOW } from '../constants/theme';
 const NAVY = '#1A1F3C';
 
 const TYPE_CFG = {
-  sketch:  { icon: 'brush',              bg: '#E4DCFF', color: '#8B72E8' },
-  alert:   { icon: 'alert-circle',       bg: '#FFE4D6', color: '#E76F51' },
-  message: { icon: 'chatbubble',         bg: '#D0F5F5', color: '#38BFBF' },
-  status:  { icon: 'checkmark-circle',   bg: '#D1FAE5', color: '#10B981' },
+  sketch:   { icon: 'brush',              bg: '#E4DCFF', color: '#8B72E8' },
+  alert:    { icon: 'alert-circle',       bg: '#FFE4D6', color: '#E76F51' },
+  message:  { icon: 'chatbubble',         bg: '#D0F5F5', color: '#38BFBF' },
+  status:   { icon: 'checkmark-circle',   bg: '#D1FAE5', color: '#10B981' },
+  schedule: { icon: 'color-palette',      bg: '#EDE9FE', color: '#7C3AED' },
 } as const;
 
 function timeAgo(iso: string) {
@@ -33,10 +34,11 @@ interface Props {
   onMarkRead: (id: string) => void;
   onDismiss: (id: string) => void;
   onClose: () => void;
+  onNotifTap?: (n: AppNotification) => void;
 }
 
 export function NotificationPanel({
-  notifications, loading, unreadCount, onMarkAllRead, onMarkRead, onDismiss, onClose,
+  notifications, loading, unreadCount, onMarkAllRead, onMarkRead, onDismiss, onClose, onNotifTap,
 }: Props) {
   return (
     <>
@@ -66,7 +68,7 @@ export function NotificationPanel({
                 <TouchableOpacity
                   key={n.id}
                   style={[s.item, !n.read && s.itemUnread]}
-                  onPress={() => onMarkRead(n.id)}
+                  onPress={() => { onMarkRead(n.id); onNotifTap?.(n); }}
                   activeOpacity={0.75}
                 >
                   <View style={[s.iconBox, { backgroundColor: cfg.bg }]}>

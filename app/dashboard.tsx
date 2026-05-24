@@ -414,6 +414,19 @@ export default function Dashboard() {
           onMarkRead={markOneRead}
           onDismiss={dismissItem}
           onClose={() => setShowNotif(false)}
+          onNotifTap={n => {
+            if (n.type === 'schedule' && n.meta) {
+              setShowNotif(false);
+              router.push({
+                pathname: '/schedule-request',
+                params: {
+                  eventId:      n.meta.eventId ?? '',
+                  childId:      n.meta.childId ?? '',
+                  selectedDate: n.meta.selectedDate ?? '',
+                },
+              } as any);
+            }
+          }}
         />
       )}
     </View>
