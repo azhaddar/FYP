@@ -12,6 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { decode } from "base64-arraybuffer";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { supabase } from "../lib/supabaseClient";
 import { SHADOW } from "../constants/theme";
@@ -181,6 +182,11 @@ export default function UploadScreen() {
         htp_features: analyzeResult.data?.htpFeatures ?? null,
         pre_mood: preMood || null,
       });
+
+      // Award 1 cookie for completing a drawing
+      const stored = await AsyncStorage.getItem(`cookies_${patientId}`).catch(() => null);
+      const current = stored ? parseInt(stored, 10) : 0;
+      await AsyncStorage.setItem(`cookies_${patientId}`, String(current + 1));
 
       router.replace({
         pathname: "/result",

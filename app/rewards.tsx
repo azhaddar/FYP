@@ -83,12 +83,14 @@ const MONSTER_DEFS: Record<
   },
 };
 
+const COOKIE_GIF = require("../assets/gifs/cookie.gif");
+
 function MonsterDexModal({
-  totalStars,
+  fedCount,
   stages,
   onClose,
 }: {
-  totalStars: number;
+  fedCount: number;
   stages: typeof MONSTER_DEFS.fire.stages;
   onClose: () => void;
 }) {
@@ -116,13 +118,13 @@ function MonsterDexModal({
         <Animated.View style={[dex.sheet, { transform: [{ translateY: slideY }] }]}>
           <View style={dex.handle} />
           <Text style={dex.title}>Monster Evolution</Text>
-          <Text style={dex.sub}>Earn stars to evolve your companion</Text>
+          <Text style={dex.sub}>Feed cookies to evolve your companion</Text>
 
           <View style={dex.grid}>
             {stages.map((stage) => {
-              const unlocked = totalStars >= stage.starsNeeded;
+              const unlocked = fedCount >= stage.starsNeeded;
               const isCurrent =
-                [...stages].reverse().find((s) => totalStars >= s.starsNeeded)?.id === stage.id;
+                [...stages].reverse().find((s) => fedCount >= s.starsNeeded)?.id === stage.id;
               return (
                 <View
                   key={stage.id}
@@ -149,8 +151,8 @@ function MonsterDexModal({
                   </Text>
                   {!unlocked && (
                     <View style={dex.lockRow}>
-                      <Ionicons name="star" size={10} color={GOLD} />
-                      <Text style={dex.lockText}>{stage.starsNeeded} stars</Text>
+                      <Image source={COOKIE_GIF} style={{ width: 11, height: 11 }} />
+                      <Text style={dex.lockText}>{stage.starsNeeded} feeds</Text>
                     </View>
                   )}
                   {unlocked && (
@@ -435,63 +437,6 @@ function CelebrationModal({
   );
 }
 
-// ── Star Grant Confirmation Modal ──────────────────────────────────────────────
-
-function StarGrantModal({
-  childName,
-  onConfirm,
-  onCancel,
-}: {
-  childName: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  const scale = useRef(new Animated.Value(0.85)).current;
-  useEffect(() => {
-    Animated.spring(scale, {
-      toValue: 1,
-      friction: 6,
-      tension: 100,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  return (
-    <Modal visible transparent animationType="fade" statusBarTranslucent>
-      <View style={grantModal.backdrop}>
-        <Animated.View style={[grantModal.card, { transform: [{ scale }] }]}>
-          <View style={grantModal.iconCircle}>
-            <Ionicons name="star" size={36} color={GOLD} />
-          </View>
-          <Text style={grantModal.title}>Give a Star?</Text>
-          <Text style={grantModal.msg}>
-            You're awarding 1 star to{" "}
-            <Text style={{ fontWeight: "800", color: NAVY }}>{childName}</Text>.
-            {"\n"}Stars show your child you're proud of them!
-          </Text>
-          <View style={grantModal.btnRow}>
-            <TouchableOpacity
-              style={grantModal.cancelBtn}
-              onPress={onCancel}
-              activeOpacity={0.8}
-            >
-              <Text style={grantModal.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={grantModal.confirmBtn}
-              onPress={onConfirm}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="star" size={15} color="#fff" />
-              <Text style={grantModal.confirmText}>Give Star!</Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      </View>
-    </Modal>
-  );
-}
-
 // ── Badge Cards ────────────────────────────────────────────────────────────────
 
 const BASE_CARD: any = {
@@ -635,12 +580,12 @@ export default function RewardsScreen() {
   const [children, setChildren] = useState<Patient[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [sketches, setSketches] = useState<Sketch[]>([]);
-  const [bonusStars, setBonusStars] = useState(0);
+  const [cookies, setCookies] = useState(0);
+  const [fedCount, setFedCount] = useState(0);
   const [seenIds, setSeenIds] = useState<string[]>([]);
   const [childrenLoading, setChildrenLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(false);
   const [celebration, setCelebration] = useState<BadgeDef | null>(null);
-  const [showGrantModal, setShowGrantModal] = useState(false);
   const [showDex, setShowDex] = useState(false);
   const [monsterType, setMonsterType] = useState<MonsterType | null>(null);
   const [monsterLoading, setMonsterLoading] = useState(true);
@@ -681,10 +626,10 @@ export default function RewardsScreen() {
     })();
   }, [profile?.id]);
 
-  // Load sketches + badges + bonus stars when child changes
+  // Load sketches + badges + cookie/fed data when child changes
   const loadChildData = useCallback(async (childId: string) => {
     setDataLoading(true);
-    const [{ data: sk }, seen, bonus] = await Promise.all([
+    const [{ data: sk }, seen, cookieVal, fedVal] = await Promise.all([
       supabase
         .from("sketches")
         .select(
@@ -693,13 +638,17 @@ export default function RewardsScreen() {
         .eq("patient_id", childId)
         .order("created_at", { ascending: false }),
       getSeenBadgeIds(childId),
-      AsyncStorage.getItem(`bonus_stars_${childId}`)
+      AsyncStorage.getItem(`cookies_${childId}`)
+        .then((v) => (v ? parseInt(v, 10) : 0))
+        .catch(() => 0),
+      AsyncStorage.getItem(`fed_count_${childId}`)
         .then((v) => (v ? parseInt(v, 10) : 0))
         .catch(() => 0),
     ]);
     setSketches((sk ?? []) as Sketch[]);
     setSeenIds(seen);
-    setBonusStars(bonus);
+    setCookies(cookieVal);
+    setFedCount(fedVal);
     setDataLoading(false);
   }, []);
 
@@ -708,7 +657,8 @@ export default function RewardsScreen() {
     else {
       setSketches([]);
       setSeenIds([]);
-      setBonusStars(0);
+      setCookies(0);
+      setFedCount(0);
     }
   }, [selectedChildId]);
 
@@ -720,12 +670,16 @@ export default function RewardsScreen() {
     await markBadgesSeen(selectedChildId, newSeenIds);
   }
 
-  async function handleGiveStarConfirm() {
-    if (!selectedChildId) return;
-    const next = bonusStars + 1;
-    setBonusStars(next);
-    await AsyncStorage.setItem(`bonus_stars_${selectedChildId}`, String(next));
-    setShowGrantModal(false);
+  async function handleFeedPet() {
+    if (!selectedChildId || cookies <= 0) return;
+    const nextCookies = cookies - 1;
+    const nextFed = fedCount + 1;
+    setCookies(nextCookies);
+    setFedCount(nextFed);
+    await Promise.all([
+      AsyncStorage.setItem(`cookies_${selectedChildId}`, String(nextCookies)),
+      AsyncStorage.setItem(`fed_count_${selectedChildId}`, String(nextFed)),
+    ]);
   }
 
   const selectedChild = children.find((c) => c.id === selectedChildId);
@@ -735,7 +689,6 @@ export default function RewardsScreen() {
   const claimableBadges = earnedBadges.filter((b) => !seenIds.includes(b.id));
   const claimedBadges = earnedBadges.filter((b) => seenIds.includes(b.id));
   const lockedBadges = BADGES.filter((b) => !b.earned(sketches));
-  const totalStars = sketches.length + bonusStars;
   const pct =
     BADGES.length > 0
       ? Math.round((earnedBadges.length / BADGES.length) * 100)
@@ -826,16 +779,54 @@ export default function RewardsScreen() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={s.scroll}
           >
-            {/* Stars card */}
+            {/* Pet card */}
             <View style={s.starsCard}>
               <View style={s.starsLeft}>
-                <Text style={s.starsLabel}>{firstName}'s Stars</Text>
-                <Text style={s.starsCount}>{totalStars}</Text>
-                <Text style={s.starsMeta}>
-                  {sketches.length} from drawings · {bonusStars} bonus
-                </Text>
-                <Text style={s.feedLabel}>Feed your pet with drawing!</Text>
+                <Text style={s.starsLabel}>{firstName}'s Pet</Text>
+
+                {/* Cookie count */}
+                <View style={s.cookieRow}>
+                  <Image source={COOKIE_GIF} style={{ width: 26, height: 26 }} />
+                  <Text style={s.cookieCount}>{cookies}</Text>
+                  <Text style={s.cookieUnit}> cookies</Text>
+                </View>
+
+                {/* Evolution progress meter */}
+                {monsterType && (() => {
+                  const stages = MONSTER_DEFS[monsterType].stages;
+                  const currentStage = [...stages].reverse().find((st) => fedCount >= st.starsNeeded)!;
+                  const nextStage = stages.find((st) => st.starsNeeded > fedCount);
+                  if (!nextStage) {
+                    return <Text style={s.fullyEvolvedText}>Fully evolved!</Text>;
+                  }
+                  const barPct = Math.min(
+                    100,
+                    Math.round(((fedCount - currentStage.starsNeeded) / (nextStage.starsNeeded - currentStage.starsNeeded)) * 100),
+                  );
+                  return (
+                    <>
+                      <View style={s.evoTrack}>
+                        <View style={[s.evoFill, { width: `${barPct}%` as any }]} />
+                      </View>
+                      <Text style={s.evoText}>{fedCount}/{nextStage.starsNeeded} feeds to evolve</Text>
+                    </>
+                  );
+                })()}
+
+                {/* Feed button */}
+                <TouchableOpacity
+                  style={[s.feedBtn, cookies === 0 && s.feedBtnDisabled]}
+                  onPress={handleFeedPet}
+                  disabled={cookies === 0}
+                  activeOpacity={0.8}
+                >
+                  <Image source={COOKIE_GIF} style={{ width: 15, height: 15 }} />
+                  <Text style={s.feedBtnText}>
+                    {cookies > 0 ? `Feed Pet (${cookies})` : "No cookies yet"}
+                  </Text>
+                </TouchableOpacity>
               </View>
+
               <TouchableOpacity
                 style={s.starsIconWrap}
                 onPress={() => monsterType && setShowDex(true)}
@@ -846,7 +837,7 @@ export default function RewardsScreen() {
                     source={
                       [...MONSTER_DEFS[monsterType].stages]
                         .reverse()
-                        .find((st) => totalStars >= st.starsNeeded)!.gif
+                        .find((st) => fedCount >= st.starsNeeded)!.gif
                     }
                     style={{ width: 128, height: 128 }}
                   />
@@ -858,7 +849,7 @@ export default function RewardsScreen() {
                 )}
                 <View style={s.tapHint}>
                   <Ionicons name="chevron-up" size={10} color="rgba(255,255,255,0.7)" />
-                  <Text style={s.tapHintText}>Evolve</Text>
+                  <Text style={s.tapHintText}>Dex</Text>
                 </View>
               </TouchableOpacity>
             </View>
@@ -875,19 +866,6 @@ export default function RewardsScreen() {
                 <View style={[s.progFill, { width: `${pct}%` as any }]} />
               </View>
             </View>
-
-            {/* Give Star button */}
-            <TouchableOpacity
-              style={s.giveStarBtn}
-              onPress={() => setShowGrantModal(true)}
-              activeOpacity={0.85}
-            >
-              <View style={s.giveStarIcon}>
-                <Ionicons name="star" size={20} color={GOLD} />
-              </View>
-              <Text style={s.giveStarText}>Give a Star to {firstName}</Text>
-              <Ionicons name="chevron-forward" size={16} color={NAVY} />
-            </TouchableOpacity>
 
             {/* Claimable badges */}
             {claimableBadges.length > 0 && (
@@ -969,17 +947,9 @@ export default function RewardsScreen() {
 
       {showDex && monsterType && (
         <MonsterDexModal
-          totalStars={totalStars}
+          fedCount={fedCount}
           stages={MONSTER_DEFS[monsterType].stages}
           onClose={() => setShowDex(false)}
-        />
-      )}
-
-      {showGrantModal && selectedChild && (
-        <StarGrantModal
-          childName={selectedChild.full_name}
-          onConfirm={handleGiveStarConfirm}
-          onCancel={() => setShowGrantModal(false)}
         />
       )}
     </ParentShell>
@@ -1037,31 +1007,50 @@ const s = StyleSheet.create({
   chipText: { fontSize: 13, fontWeight: "600", color: "#374151" },
   chipTextActive: { color: "#fff" },
 
-  scroll: { paddingHorizontal: 16, paddingBottom: 40, gap: 0 },
+  scroll: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40, gap: 0 },
 
-  // Stars card
+  // Pet / cookie card
   starsCard: {
     backgroundColor: NAVY,
     borderRadius: 20,
-    paddingHorizontal: 25,
-    paddingTop: 22,
-    paddingBottom: 2,
+    paddingHorizontal: 22,
+    paddingTop: 18,
+    paddingBottom: 14,
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
     marginBottom: 12,
     ...SHADOW.md,
   },
-  starsLeft: { gap: 4, paddingTop: 4 },
+  starsLeft: { gap: 6, paddingTop: 4, flex: 1 },
   starsLabel: {
     fontSize: 13,
     color: "rgba(255,255,255,0.7)",
     fontWeight: "600",
   },
-  starsCount: { fontSize: 48, fontWeight: "900", color: GOLD, lineHeight: 54 },
-  starsMeta: { fontSize: 12, color: "rgba(255,255,255,0.6)" },
-  feedLabel: { fontSize: 11, color: "rgba(255,255,255,0.5)", fontStyle: "italic", marginTop: 4 },
-  starsIconWrap: { opacity: 0.9, marginRight: -8, alignItems: "center" },
+  cookieRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  cookieCount: { fontSize: 36, fontWeight: "900", color: GOLD, lineHeight: 40 },
+  cookieUnit: { fontSize: 14, fontWeight: "600", color: "rgba(255,255,255,0.7)", alignSelf: "flex-end", paddingBottom: 4 },
+
+  evoTrack: {
+    height: 6, borderRadius: 3,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    overflow: "hidden", marginRight: 12, marginTop: 2,
+  },
+  evoFill: { height: "100%", borderRadius: 3, backgroundColor: GOLD },
+  evoText: { fontSize: 10, color: "rgba(255,255,255,0.55)", fontWeight: "600", marginTop: 2 },
+  fullyEvolvedText: { fontSize: 11, color: GOLD, fontWeight: "700", marginTop: 2 },
+
+  feedBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6,
+    backgroundColor: "rgba(255,255,255,0.12)", borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 7,
+    alignSelf: "flex-start",
+  },
+  feedBtnDisabled: { opacity: 0.45 },
+  feedBtnText: { fontSize: 12, fontWeight: "700", color: "#fff" },
+
+  starsIconWrap: { opacity: 0.9, marginRight: -8, alignItems: "center", marginLeft: 8 },
   tapHint: {
     flexDirection: "row", alignItems: "center", gap: 3, marginTop: 2,
   },
@@ -1089,29 +1078,6 @@ const s = StyleSheet.create({
     overflow: "hidden",
   },
   progFill: { height: "100%", borderRadius: 4, backgroundColor: C.primary },
-
-  // Give Star button
-  giveStarBtn: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 24,
-    ...SHADOW.sm,
-    borderWidth: 1.5,
-    borderColor: GOLD + "55",
-  },
-  giveStarIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "#fffbeb",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  giveStarText: { flex: 1, fontSize: 15, fontWeight: "700", color: NAVY },
 
   // Section headers
   sectionRow: {
@@ -1361,57 +1327,6 @@ const cel = StyleSheet.create({
     marginTop: 4,
   },
   btnText: { fontSize: 18, fontWeight: "900", color: "#fff" },
-});
-
-const grantModal = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 32,
-  },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 24,
-    padding: 28,
-    alignItems: "center",
-    width: "100%",
-    gap: 12,
-    ...SHADOW.lg,
-  },
-  iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "#fffbeb",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  title: { fontSize: 22, fontWeight: "900", color: NAVY },
-  msg: { fontSize: 14, color: C.textSub, textAlign: "center", lineHeight: 22 },
-  btnRow: { flexDirection: "row", gap: 10, width: "100%", marginTop: 4 },
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: "center",
-    backgroundColor: "#F5F5F8",
-    borderWidth: 1.5,
-    borderColor: "#E5E7EB",
-  },
-  cancelText: { fontSize: 15, fontWeight: "700", color: C.textSub },
-  confirmBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    backgroundColor: NAVY,
-  },
-  confirmText: { fontSize: 15, fontWeight: "800", color: "#fff" },
 });
 
 const dex = StyleSheet.create({
