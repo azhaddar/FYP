@@ -591,6 +591,22 @@ export default function RewardsScreen() {
   const [monsterLoading, setMonsterLoading] = useState(true);
   const [congratsType, setCongratsType] = useState<MonsterType | null>(null);
 
+  const feedPulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (cookies > 0) {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(feedPulse, { toValue: 1.07, duration: 600, useNativeDriver: true }),
+          Animated.timing(feedPulse, { toValue: 1,    duration: 600, useNativeDriver: true }),
+        ]),
+      );
+      loop.start();
+      return () => loop.stop();
+    } else {
+      feedPulse.setValue(1);
+    }
+  }, [cookies]);
+
   // Load monster type when child changes
   useEffect(() => {
     if (!selectedChildId) { setMonsterType(null); setMonsterLoading(false); return; }
@@ -814,17 +830,26 @@ export default function RewardsScreen() {
                 })()}
 
                 {/* Feed button */}
-                <TouchableOpacity
-                  style={[s.feedBtn, cookies === 0 && s.feedBtnDisabled]}
-                  onPress={handleFeedPet}
-                  disabled={cookies === 0}
-                  activeOpacity={0.8}
-                >
-                  <Image source={COOKIE_GIF} style={{ width: 15, height: 15 }} />
-                  <Text style={s.feedBtnText}>
-                    {cookies > 0 ? `Feed Pet (${cookies})` : "No cookies yet"}
-                  </Text>
-                </TouchableOpacity>
+                <Animated.View style={{ transform: [{ scale: feedPulse }], alignSelf: 'flex-start' }}>
+                  <TouchableOpacity
+                    style={[s.feedBtn, cookies > 0 ? s.feedBtnActive : s.feedBtnDisabled]}
+                    onPress={handleFeedPet}
+                    disabled={cookies === 0}
+                    activeOpacity={0.8}
+                  >
+                    <Image source={COOKIE_GIF} style={{ width: cookies > 0 ? 22 : 15, height: cookies > 0 ? 22 : 15 }} />
+                    {cookies > 0 ? (
+                      <>
+                        <Text style={s.feedBtnTextActive}>Feed a Cookie</Text>
+                        <View style={s.feedBadge}>
+                          <Text style={s.feedBadgeText}>{cookies}</Text>
+                        </View>
+                      </>
+                    ) : (
+                      <Text style={s.feedBtnText}>No cookies yet</Text>
+                    )}
+                  </TouchableOpacity>
+                </Animated.View>
               </View>
 
               <TouchableOpacity
@@ -1047,8 +1072,22 @@ const s = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 7,
     alignSelf: "flex-start",
   },
+  feedBtnActive: {
+    flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6,
+    backgroundColor: "#f97316", borderRadius: 14,
+    paddingHorizontal: 16, paddingVertical: 10,
+    alignSelf: "flex-start",
+    shadowColor: "#f97316", shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5, shadowRadius: 8, elevation: 6,
+  },
   feedBtnDisabled: { opacity: 0.45 },
-  feedBtnText: { fontSize: 12, fontWeight: "700", color: "#fff" },
+  feedBtnText:     { fontSize: 12, fontWeight: "700", color: "#fff" },
+  feedBtnTextActive: { fontSize: 14, fontWeight: "800", color: "#fff" },
+  feedBadge: {
+    backgroundColor: "rgba(255,255,255,0.3)", borderRadius: 10,
+    paddingHorizontal: 7, paddingVertical: 2, minWidth: 22, alignItems: "center",
+  },
+  feedBadgeText: { fontSize: 11, fontWeight: "900", color: "#fff" },
 
   starsIconWrap: { opacity: 0.9, marginRight: -8, alignItems: "center", marginLeft: 8 },
   tapHint: {
