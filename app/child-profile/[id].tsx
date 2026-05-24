@@ -37,10 +37,11 @@ export default function ChildProfileScreen() {
   const [child, setChild]           = useState<Patient | null>(null);
   const [therapist, setTherapist]   = useState<TherapistInfo | null>(null);
   const [sketches, setSketches]     = useState<Sketch[]>([]);
-  const [activeTab, setActiveTab]       = useState<Emotion | 'all'>('all');
-  const [loading, setLoading]           = useState(true);
-  const [refreshing, setRefreshing]     = useState(false);
-  const [selectedSketch, setSelected]   = useState<Sketch | null>(null);
+  const [activeTab, setActiveTab]         = useState<Emotion | 'all'>('all');
+  const [loading, setLoading]             = useState(true);
+  const [refreshing, setRefreshing]       = useState(false);
+  const [selectedSketch, setSelected]     = useState<Sketch | null>(null);
+  const [showAllDrawings, setShowAllDrawings] = useState(false);
 
   useEffect(() => { if (id) load(); }, [id]);
 
@@ -82,6 +83,10 @@ export default function ChildProfileScreen() {
   const filteredSketches = activeTab === 'all'
     ? sketches
     : sketches.filter(s => s.emotion === activeTab);
+
+  const DRAWINGS_LIMIT = 4;
+  const displayedSketches = showAllDrawings ? filteredSketches : filteredSketches.slice(0, DRAWINGS_LIMIT);
+  const hasMore = filteredSketches.length > DRAWINGS_LIMIT;
 
   const emotionCounts = EMOTIONS.reduce<Record<string, number>>((acc, e) => {
     acc[e] = sketches.filter(s => s.emotion === e).length;
@@ -220,49 +225,7 @@ export default function ChildProfileScreen() {
           })}
         </View>
 
-        {/* ── Drawings ────────────────────────────────────── */}
-        <View style={s.drawingsHeader}>
-          <SectionLabel style={{ marginBottom: 0 }}>Drawings</SectionLabel>
-          <Text style={s.drawingsCount}>{filteredSketches.length} shown</Text>
-        </View>
-
-        {/* Emotion filter tabs */}
-        <ScrollView
-          horizontal showsHorizontalScrollIndicator={false}
-          contentContainerStyle={s.tabs}
-          style={s.tabsScroll}
-        >
-          <FilterTab label="All" count={sketches.length} active={activeTab === 'all'} onPress={() => setActiveTab('all')} />
-          {EMOTIONS.map(e => (
-            <FilterTab
-              key={e}
-              label={e.charAt(0).toUpperCase() + e.slice(1)}
-              count={emotionCounts[e]}
-              active={activeTab === e}
-              onPress={() => setActiveTab(e)}
-              emotion={e}
-            />
-          ))}
-        </ScrollView>
-
-        {filteredSketches.length === 0 ? (
-          <View style={s.emptyDrawings}>
-            <Ionicons name="brush-outline" size={36} color={C.borderMed} />
-            <Text style={s.emptyDrawingsText}>No drawings yet</Text>
-          </View>
-        ) : (
-          <View style={s.drawingGrid}>
-            {filteredSketches.map(sketch => (
-              <DrawingCard
-                key={sketch.id}
-                sketch={sketch}
-                onPress={() => setSelected(sketch)}
-              />
-            ))}
-          </View>
-        )}
-
-        {/* ── Actions ─────────────────────────────────────── */}
+        {/* ── Quick Actions ────────────────────────────────── */}
         <View style={s.actions}>
           <ActionBtn
             icon="book-outline"
@@ -276,6 +239,69 @@ export default function ChildProfileScreen() {
             primary
           />
         </View>
+
+        {/* ── Drawings ────────────────────────────────────── */}
+        <View style={s.drawingsHeader}>
+          <SectionLabel style={{ marginBottom: 0 }}>Drawings</SectionLabel>
+          <Text style={s.drawingsCount}>{filteredSketches.length} total</Text>
+        </View>
+
+        {/* Emotion filter tabs */}
+        <ScrollView
+          horizontal showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.tabs}
+          style={s.tabsScroll}
+        >
+          <FilterTab label="All" count={sketches.length} active={activeTab === 'all'} onPress={() => { setActiveTab('all'); setShowAllDrawings(false); }} />
+          {EMOTIONS.map(e => (
+            <FilterTab
+              key={e}
+              label={e.charAt(0).toUpperCase() + e.slice(1)}
+              count={emotionCounts[e]}
+              active={activeTab === e}
+              onPress={() => { setActiveTab(e); setShowAllDrawings(false); }}
+              emotion={e}
+            />
+          ))}
+        </ScrollView>
+
+        {filteredSketches.length === 0 ? (
+          <View style={s.emptyDrawings}>
+            <Ionicons name="brush-outline" size={36} color={C.borderMed} />
+            <Text style={s.emptyDrawingsText}>No drawings yet</Text>
+          </View>
+        ) : (
+          <>
+            <View style={s.drawingGrid}>
+              {displayedSketches.map(sketch => (
+                <DrawingCard
+                  key={sketch.id}
+                  sketch={sketch}
+                  onPress={() => setSelected(sketch)}
+                />
+              ))}
+            </View>
+
+            {hasMore && (
+              <TouchableOpacity
+                style={s.showMoreBtn}
+                onPress={() => setShowAllDrawings(v => !v)}
+                activeOpacity={0.75}
+              >
+                <Text style={s.showMoreText}>
+                  {showAllDrawings
+                    ? 'Show less'
+                    : `Show all ${filteredSketches.length} drawings`}
+                </Text>
+                <Ionicons
+                  name={showAllDrawings ? 'chevron-up' : 'chevron-down'}
+                  size={14}
+                  color={NAVY}
+                />
+              </TouchableOpacity>
+            )}
+          </>
+        )}
       </ScrollView>
 
       {selectedSketch && (
@@ -775,5 +801,13 @@ const s = StyleSheet.create({
   emptyDrawingsText: { fontSize: 13, color: C.textMuted },
 
   // Actions row
-  actions: { flexDirection: 'row', gap: 10 },
+  actions: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+
+  // Show more
+  showMoreBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: C.white, borderRadius: 12, paddingVertical: 12,
+    marginBottom: 20, borderWidth: 1, borderColor: C.border,
+  },
+  showMoreText: { fontSize: 13, fontWeight: '700', color: NAVY },
 });
