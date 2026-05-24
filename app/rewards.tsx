@@ -314,7 +314,7 @@ function CongratsModal({
           <Text style={congrats.msg}>
             Your pet friend is{" "}
             <Text style={{ fontWeight: "900", color: def.color }}>{firstName}</Text>!
-            {"\n"}Earn stars to help them evolve!
+            {"\n"}Earn cookies to help them evolve!
           </Text>
           <TouchableOpacity
             style={[congrats.btn, { backgroundColor: def.color }]}
