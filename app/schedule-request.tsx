@@ -67,6 +67,17 @@ export default function ScheduleRequestScreen() {
         .eq('id', eventId);
       if (error) throw error;
 
+      // Activity log
+      await supabase.from('activity_logs').insert({
+        actor_id:     (await supabase.auth.getUser()).data.user?.id ?? null,
+        actor_name:   'Parent',
+        action:       status === 'accepted' ? 'session.accepted' : 'session.rejected',
+        entity_type:  'child_event',
+        entity_id:    eventId,
+        entity_label: event.title,
+        meta:         { child_id: event.child_id, child_name: childName },
+      }).then(() => {}).catch(() => {});
+
       // Notify the therapist
       const { data: therapistProfile } = await supabase
         .from('profiles')
