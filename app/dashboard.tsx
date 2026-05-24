@@ -50,6 +50,8 @@ export default function Dashboard() {
   const [childAge, setChildAge]         = useState('');
   const [childGender, setChildGender]   = useState<'Male' | 'Female' | 'Other' | ''>('');
   const [saving, setSaving]             = useState(false);
+  const [showAddSuccess, setShowAddSuccess] = useState(false);
+  const [addedChildName, setAddedChildName] = useState('');
 
   useEffect(() => {
     fetchChildren();
@@ -167,12 +169,24 @@ export default function Dashboard() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not logged in');
+
+      // Guard against missing profile row (trigger may have failed)
+      const { data: prof } = await supabase.from('profiles').select('full_name, email').eq('id', user.id).single();
+      await supabase.from('profiles').upsert({
+        id:        user.id,
+        full_name: prof?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Parent',
+        email:     prof?.email || user.email || '',
+        role:      'user',
+      }, { onConflict: 'id' });
+
       const { error } = await supabase.from('patients').insert({
         full_name: childName.trim(), age, gender: childGender,
         guardian_id: user.id, status: 'Active',
       });
       if (error) throw error;
       setAddModal(false);
+      setAddedChildName(childName.trim());
+      setShowAddSuccess(true);
       fetchChildren();
     } catch (e: any) {
       Alert.alert('Error', e.message);
@@ -236,6 +250,36 @@ export default function Dashboard() {
           </View>
         </View>
       </KeyboardAvoidingView>
+    </Modal>
+  );
+
+  const successModal = (
+    <Modal visible={showAddSuccess} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setShowAddSuccess(false)}>
+      <View style={s.successBackdrop}>
+        <View style={s.successCard}>
+          <Ionicons name="checkmark-circle" size={56} color="#22c55e" style={{ marginBottom: 8 }} />
+          <Text style={s.successTitle}>All done!</Text>
+          <Text style={s.successSub}>Child profile created for</Text>
+          <Text style={s.successName}>{addedChildName}</Text>
+
+          <TouchableOpacity
+            style={s.successBtnOutline}
+            onPress={() => { setShowAddSuccess(false); openAddModal(); }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="person-add-outline" size={16} color="#e13d7d" />
+            <Text style={s.successBtnOutlineText}>Add Another Child</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={s.successBtnFill}
+            onPress={() => setShowAddSuccess(false)}
+            activeOpacity={0.85}
+          >
+            <Text style={s.successBtnFillText}>Back to Dashboard</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </Modal>
   );
 
@@ -404,6 +448,7 @@ export default function Dashboard() {
       </ScrollView>
 
       {addChildModal}
+      {successModal}
 
       {showNotif && (
         <NotificationPanel
@@ -504,6 +549,17 @@ const s = StyleSheet.create({
   alertText:   { flex: 1, fontSize: 11, color: '#92400e', lineHeight: 16 },
 
   hint: { textAlign: 'center', fontSize: 11, color: C.textMuted, marginTop: 18 },
+
+  // Success modal
+  successBackdrop:       { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center', padding: 32 },
+  successCard:           { backgroundColor: C.white, borderRadius: 28, padding: 32, width: '100%', alignItems: 'center', gap: 6 },
+  successTitle:          { fontSize: 26, fontWeight: '900', color: NAVY },
+  successSub:            { fontSize: 14, color: '#6b7280' },
+  successName:           { fontSize: 20, fontWeight: '800', color: '#e13d7d', marginBottom: 12 },
+  successBtnOutline:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%', paddingVertical: 14, borderRadius: 14, borderWidth: 2, borderColor: '#e13d7d', marginTop: 4 },
+  successBtnOutlineText: { fontSize: 14, fontWeight: '700', color: '#e13d7d' },
+  successBtnFill:        { width: '100%', paddingVertical: 14, borderRadius: 14, backgroundColor: NAVY, alignItems: 'center', marginTop: 8 },
+  successBtnFillText:    { fontSize: 14, fontWeight: '700', color: C.white },
 
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalSheet:    { backgroundColor: C.white, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 22, paddingBottom: 36, gap: 4 },
