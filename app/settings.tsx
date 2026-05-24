@@ -136,7 +136,7 @@ export default function ProfileScreen() {
           <View style={s.section}>
             <View style={s.sectionRow}>
               <Text style={s.sectionTitle}>My Children</Text>
-              <TouchableOpacity style={s.addChildBtn}>
+              <TouchableOpacity style={s.addChildBtn} onPress={() => router.push('/add-child' as any)}>
                 <Ionicons name="add" size={15} color={C.white} />
                 <Text style={s.addChildBtnText}>Add Child</Text>
               </TouchableOpacity>
