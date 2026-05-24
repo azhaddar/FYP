@@ -67,6 +67,7 @@ export default function CalendarScreen() {
   const [selectedDate, setSelectedDate]   = useState<string>(
     params.selectedDate ?? new Date().toISOString().split('T')[0]
   );
+  const [showAll, setShowAll]             = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -154,6 +155,17 @@ export default function CalendarScreen() {
   const daySketches = sketches.filter(s => s.created_at.split('T')[0] === selectedDate);
   const selectedChild = children.find(c => c.id === selectedChildId);
 
+  const DAILY_LIMIT = 5;
+  const allDayItems = [
+    ...dayEvents.map(e  => ({ type: 'event'  as const, data: e,  key: e.id  })),
+    ...daySketches.map(s => ({ type: 'sketch' as const, data: s,  key: s.id  })),
+  ];
+  const visibleItems = showAll ? allDayItems : allDayItems.slice(0, DAILY_LIMIT);
+  const hiddenCount  = allDayItems.length - DAILY_LIMIT;
+
+  // Reset "show more" whenever the selected date changes
+  useEffect(() => { setShowAll(false); }, [selectedDate]);
+
   const dayLabel = new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-MY', {
     weekday: 'long', day: 'numeric', month: 'long',
   });
@@ -233,15 +245,30 @@ export default function CalendarScreen() {
 
             {loading ? (
               <ActivityIndicator color={NAVY} style={{ marginTop: 24 }} />
-            ) : dayEvents.length === 0 && daySketches.length === 0 ? (
+            ) : allDayItems.length === 0 ? (
               <View style={s.empty}>
                 <Ionicons name="calendar-outline" size={36} color="#D1D5DB" />
                 <Text style={s.emptyText}>Nothing on this day</Text>
               </View>
             ) : (
               <>
-                {dayEvents.map(ev => <ScheduledEventCard key={ev.id} event={ev} />)}
-                {daySketches.map(sk => <DrawingHistoryCard key={sk.id} sketch={sk} />)}
+                {visibleItems.map(item =>
+                  item.type === 'event'
+                    ? <ScheduledEventCard key={item.key} event={item.data as ChildEvent} />
+                    : <DrawingHistoryCard key={item.key} sketch={item.data as SketchEntry} />
+                )}
+                {!showAll && hiddenCount > 0 && (
+                  <TouchableOpacity style={s.showMoreBtn} onPress={() => setShowAll(true)} activeOpacity={0.75}>
+                    <Text style={s.showMoreText}>Show {hiddenCount} more</Text>
+                    <Ionicons name="chevron-down" size={14} color={NAVY} />
+                  </TouchableOpacity>
+                )}
+                {showAll && allDayItems.length > DAILY_LIMIT && (
+                  <TouchableOpacity style={s.showMoreBtn} onPress={() => setShowAll(false)} activeOpacity={0.75}>
+                    <Text style={s.showMoreText}>Show less</Text>
+                    <Ionicons name="chevron-up" size={14} color={NAVY} />
+                  </TouchableOpacity>
+                )}
               </>
             )}
           </View>
@@ -327,6 +354,13 @@ const s = StyleSheet.create({
   sectionTitle: { fontSize: 15, fontWeight: '700', color: NAVY, marginBottom: 12 },
   empty: { alignItems: 'center', paddingVertical: 36, gap: 8 },
   emptyText: { fontSize: 13, color: '#9CA3AF' },
+  showMoreBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 12, borderRadius: 12,
+    backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#E5E7EB',
+    marginBottom: 10,
+  },
+  showMoreText: { fontSize: 13, fontWeight: '700', color: NAVY },
 });
 
 const card = StyleSheet.create({
