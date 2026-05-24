@@ -30,3 +30,24 @@ export type Profile = {
   full_name: string;
   role: string;
 };
+
+export type ChildEventType =
+  | 'appointment'
+  | 'homework_prompt'
+  | 'check_in'
+  | 'drawing_schedule';
+
+export type ParentStatus = 'pending' | 'accepted' | 'rejected';
+
+export type ChildEvent = {
+  id: string;
+  child_id: string;
+  therapist_id: string;
+  title: string;
+  description: string | null;
+  event_type: ChildEventType;
+  scheduled_at: string;
+  is_notified: boolean;
+  parent_status: ParentStatus;
+  created_at: string;
+};

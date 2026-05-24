@@ -43,7 +43,16 @@ export function NotificationHandler() {
 
     responseSub.current = Notifications.addNotificationResponseReceivedListener(response => {
       const data = response.notification.request.content.data as Record<string, string>;
-      if (data?.screen === 'calendar') {
+      if (data?.screen === 'drawing-schedule') {
+        router.push({
+          pathname: '/schedule-request',
+          params: {
+            eventId:      data.eventId ?? '',
+            childId:      data.childId ?? '',
+            selectedDate: data.selectedDate ?? '',
+          },
+        } as any);
+      } else if (data?.screen === 'calendar') {
         router.push({
           pathname: '/calendar',
           params: {
