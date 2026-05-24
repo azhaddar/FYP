@@ -29,9 +29,11 @@ const PROMPT_OPTIONS = [
     key: "self",
     label: "Draw Yourself",
     icon: "person-outline" as const,
-    desc: "A self-portrait or figure drawing",
-    badge: null,
-    elements: null,
+    desc: "Draw a full person — head to toe",
+    badge: "DAP Test",
+    elements: [
+      { icon: "person-outline" as const, label: "Full Body" },
+    ],
   },
   {
     key: "house",
@@ -300,12 +302,22 @@ export default function UploadScreen() {
           })}
         </View>
 
-        {/* Contextual tip when HTP is selected */}
+        {/* Contextual tip — DAP */}
+        {selectedPrompt === 'self' && (
+          <View style={st.tipBanner}>
+            <Ionicons name="information-circle" size={16} color="#1E40AF" style={{ flexShrink: 0, marginTop: 1 }} />
+            <Text style={st.tipText}>
+              Draw a <Text style={st.tipBold}>complete person</Text> from head to toe — include the face, body, arms, and legs on the same sheet of paper.
+            </Text>
+          </View>
+        )}
+
+        {/* Contextual tip — HTP */}
         {selectedPrompt === 'house' && (
-          <View style={st.htpTip}>
+          <View style={[st.tipBanner, st.tipBannerAmber]}>
             <Ionicons name="information-circle" size={16} color="#92400E" style={{ flexShrink: 0, marginTop: 1 }} />
-            <Text style={st.htpTipText}>
-              Draw all three elements — a <Text style={st.htpTipBold}>house</Text>, a <Text style={st.htpTipBold}>tree</Text>, and a <Text style={st.htpTipBold}>person</Text> — on the same sheet of paper before taking a photo.
+            <Text style={[st.tipText, st.tipTextAmber]}>
+              Draw all three elements — a <Text style={st.tipBoldAmber}>house</Text>, a <Text style={st.tipBoldAmber}>tree</Text>, and a <Text style={st.tipBoldAmber}>person</Text> — on the same sheet of paper before taking a photo.
             </Text>
           </View>
         )}
@@ -490,10 +502,13 @@ const st = StyleSheet.create({
   elementChipText: { fontSize: 10, fontWeight: "600", color: "#6B7280" },
   elementChipTextActive: { color: "#92400E" },
 
-  // HTP contextual tip banner
-  htpTip: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "#FFFBEB", borderWidth: 1, borderColor: "#FDE68A", borderRadius: 12, padding: 12, marginTop: 12 },
-  htpTipText: { flex: 1, fontSize: 12, color: "#78350F", lineHeight: 18 },
-  htpTipBold: { fontWeight: "800", color: "#92400E" },
+  // Contextual tip banners
+  tipBanner: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "#EFF6FF", borderWidth: 1, borderColor: "#BFDBFE", borderRadius: 12, padding: 12, marginTop: 12 },
+  tipBannerAmber: { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" },
+  tipText: { flex: 1, fontSize: 12, color: "#1E3A8A", lineHeight: 18 },
+  tipTextAmber: { color: "#78350F" },
+  tipBold: { fontWeight: "800", color: "#1E40AF" },
+  tipBoldAmber: { fontWeight: "800", color: "#92400E" },
 
   // ── Photo section ──────────────────────────────────────────────────────────
   photoActions: { gap: 12 },
