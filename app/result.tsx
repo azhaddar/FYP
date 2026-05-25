@@ -125,8 +125,8 @@ function EmotionBar({ emotion, pts, maxScore, isTop }: { emotion: Emotion; pts: 
 }
 
 export default function ResultScreen() {
-  const { emotion, scores: scoresParam, preMood, therapistMessage, patientId, patientName } = useLocalSearchParams<{
-    emotion: string; scores: string; preMood: string; therapistMessage: string; patientId: string; patientName: string;
+  const { emotion, scores: scoresParam, preMood, patientId, patientName } = useLocalSearchParams<{
+    emotion: string; scores: string; preMood: string; patientId: string; patientName: string;
   }>();
   const router = useRouter();
 
@@ -176,38 +176,30 @@ export default function ResultScreen() {
           <Text style={[styles.subMessage, { color: data.textColor + 'cc' }]}>{data.subMessage}</Text>
         </View>
 
-        {/* Therapist insight card */}
-        {(therapistMessage || preMood) ? (
+        {/* Pre-mood vs drawing comparison */}
+        {preMood ? (
           <View style={styles.therapistCard}>
             <View style={styles.therapistHeader}>
               <View style={styles.therapistIconCircle}>
-                <Ionicons name="heart" size={16} color={C.primary} />
+                <Ionicons name="swap-horizontal" size={16} color={C.primary} />
               </View>
               <View style={styles.therapistTitleGroup}>
-                <Text style={styles.therapistBadge}>Virtual Therapist</Text>
-                <Text style={styles.therapistTitle}>A Note For You</Text>
+                <Text style={styles.therapistTitle}>Mood Check</Text>
               </View>
             </View>
-
-            {preMood ? (
-              <View style={styles.moodCompareRow}>
-                <View style={styles.moodPill}>
-                  <Text style={styles.moodPillLabel}>You felt</Text>
-                  <EmotionIcon emotion={preMood} size={18} />
-                  <Text style={styles.moodPillEmotion}>{preMood.charAt(0).toUpperCase() + preMood.slice(1)}</Text>
-                </View>
-                <Ionicons name="arrow-forward" size={14} color={C.textMuted} />
-                <View style={styles.moodPill}>
-                  <Text style={styles.moodPillLabel}>Drawing shows</Text>
-                  <EmotionIcon emotion={dominantEmotion} size={18} />
-                  <Text style={styles.moodPillEmotion}>{dominantEmotion.charAt(0).toUpperCase() + dominantEmotion.slice(1)}</Text>
-                </View>
+            <View style={styles.moodCompareRow}>
+              <View style={styles.moodPill}>
+                <Text style={styles.moodPillLabel}>You felt</Text>
+                <EmotionIcon emotion={preMood} size={18} />
+                <Text style={styles.moodPillEmotion}>{preMood.charAt(0).toUpperCase() + preMood.slice(1)}</Text>
               </View>
-            ) : null}
-
-            {therapistMessage ? (
-              <Text style={styles.therapistMessage}>{therapistMessage}</Text>
-            ) : null}
+              <Ionicons name="arrow-forward" size={14} color={C.textMuted} />
+              <View style={styles.moodPill}>
+                <Text style={styles.moodPillLabel}>Drawing shows</Text>
+                <EmotionIcon emotion={dominantEmotion} size={18} />
+                <Text style={styles.moodPillEmotion}>{dominantEmotion.charAt(0).toUpperCase() + dominantEmotion.slice(1)}</Text>
+              </View>
+            </View>
           </View>
         ) : null}
 
@@ -307,7 +299,6 @@ const styles = StyleSheet.create({
     backgroundColor: C.primaryLight, justifyContent: 'center', alignItems: 'center',
   },
   therapistTitleGroup: { gap: 1 },
-  therapistBadge: { fontSize: 10, fontWeight: '700', color: C.primary, textTransform: 'uppercase', letterSpacing: 0.8 },
   therapistTitle: { fontSize: 15, fontWeight: '800', color: C.text },
 
   moodCompareRow: {
@@ -322,7 +313,6 @@ const styles = StyleSheet.create({
   moodPillLabel: { fontSize: 10, color: C.textMuted, fontWeight: '600' },
   moodPillEmotion: { fontSize: 12, fontWeight: '700', color: C.text, textTransform: 'capitalize' },
 
-  therapistMessage: { fontSize: 14, color: C.textSub, lineHeight: 22 },
 
   scoresCard: {
     width: '100%', backgroundColor: C.white,

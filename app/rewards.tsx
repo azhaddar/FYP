@@ -636,7 +636,7 @@ export default function RewardsScreen() {
       supabase
         .from("sketches")
         .select(
-          "id, patient_id, emotion, created_at, notes, therapist_notes, image_url, scores, therapist_message, pre_mood, status, reviewed_at, verified_at",
+          "id, patient_id, emotion, created_at, notes, therapist_notes, image_url, scores, pre_mood, status, reviewed_at, verified_at",
         )
         .eq("patient_id", childId)
         .order("created_at", { ascending: false }),

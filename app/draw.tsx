@@ -189,7 +189,6 @@ export default function UploadScreen() {
         notes: null,
         image_url: urlData.publicUrl,
         scores: scores ?? null,
-        therapist_message: analyzeResult.data?.therapistMessage ?? null,
         htp_features: analyzeResult.data?.htpFeatures ?? null,
         pre_mood: preMood || null,
       });
@@ -212,7 +211,6 @@ export default function UploadScreen() {
           emotion,
           scores: scores ? JSON.stringify(scores) : "",
           preMood: preMood || "",
-          therapistMessage: analyzeResult.data?.therapistMessage ?? "",
           patientId,
           patientName: patientName ?? "",
         },

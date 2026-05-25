@@ -225,21 +225,6 @@ export default function SketchDetailScreen() {
           </View>
         ) : null}
 
-        {/* Therapist message */}
-        {sketch.therapist_message ? (
-          <View style={styles.therapistCard}>
-            <View style={styles.therapistHeader}>
-              <View style={styles.therapistIconCircle}>
-                <Ionicons name="heart" size={14} color={C.primary} />
-              </View>
-              <View>
-                <Text style={styles.therapistBadge}>Virtual Therapist</Text>
-                <Text style={styles.therapistTitle}>A Note For You</Text>
-              </View>
-            </View>
-            <Text style={styles.therapistMessage}>{sketch.therapist_message}</Text>
-          </View>
-        ) : null}
 
         {/* Emotion signal intensity */}
         {scores ? (
@@ -451,20 +436,6 @@ const styles = StyleSheet.create({
     fontSize: 11, color: C.textSub, fontStyle: 'italic', lineHeight: 17,
     borderTopWidth: 1, borderTopColor: C.border, paddingTop: 8,
   },
-
-  therapistCard: {
-    backgroundColor: C.white, borderRadius: 16,
-    padding: 16, borderLeftWidth: 3, borderLeftColor: C.primary, gap: 10,
-    ...SHADOW.sm,
-  },
-  therapistHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  therapistIconCircle: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: C.primaryLight, justifyContent: 'center', alignItems: 'center',
-  },
-  therapistBadge: { fontSize: 10, fontWeight: '700', color: C.primary, textTransform: 'uppercase', letterSpacing: 0.8 },
-  therapistTitle: { fontSize: 14, fontWeight: '800', color: C.text },
-  therapistMessage: { fontSize: 14, color: C.textSub, lineHeight: 22 },
 
   scoresCard: {
     backgroundColor: C.white, borderRadius: 16,

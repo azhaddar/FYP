@@ -79,7 +79,7 @@ export default function ChildProfileScreen() {
       // Fetch sketches
       const { data: sketchData } = await supabase
         .from('sketches')
-        .select('id, patient_id, emotion, notes, image_url, created_at, scores, therapist_notes, therapist_message, pre_mood, status')
+        .select('id, patient_id, emotion, notes, image_url, created_at, scores, therapist_notes, pre_mood, status')
         .eq('patient_id', id)
         .order('created_at', { ascending: false })
         .limit(60);

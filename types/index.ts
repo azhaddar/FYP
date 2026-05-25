@@ -18,7 +18,6 @@ export type Sketch = {
   image_url: string | null;
   created_at: string;
   scores: Record<string, number> | null;
-  therapist_message: string | null;
   pre_mood: string | null;
   status: 'submitted' | 'reviewing' | 'verified';
   reviewed_at: string | null;
