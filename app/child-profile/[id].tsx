@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   ActivityIndicator, Image, RefreshControl, Alert,
-  Modal, Pressable, Animated,
+  Modal, Pressable, Animated, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -42,6 +42,15 @@ export default function ChildProfileScreen() {
   const [refreshing, setRefreshing]       = useState(false);
   const [selectedSketch, setSelected]     = useState<Sketch | null>(null);
   const [showAllDrawings, setShowAllDrawings] = useState(false);
+
+  // Edit modal
+  const [editModal, setEditModal]       = useState(false);
+  const [editName, setEditName]         = useState('');
+  const [editAge, setEditAge]           = useState('');
+  const [editGender, setEditGender]     = useState('');
+  const [editNotes, setEditNotes]       = useState('');
+  const [saving, setSaving]             = useState(false);
+  const [showSaved, setShowSaved]       = useState(false);
 
   useEffect(() => { if (id) load(); }, [id]);
 
@@ -95,6 +104,36 @@ export default function ChildProfileScreen() {
 
   const lastActivity = sketches[0]?.created_at;
 
+  function openEdit() {
+    if (!child) return;
+    setEditName(child.full_name);
+    setEditAge(String(child.age));
+    setEditGender(child.gender ?? 'Male');
+    setEditNotes(child.personality ?? '');
+    setEditModal(true);
+  }
+
+  async function handleSave() {
+    if (!editName.trim()) { Alert.alert('Required', 'Please enter the child\'s name.'); return; }
+    const age = parseInt(editAge);
+    if (!editAge || isNaN(age) || age < 1) { Alert.alert('Required', 'Please enter a valid age.'); return; }
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('patients')
+        .update({ full_name: editName.trim(), age, gender: editGender, personality: editNotes.trim() })
+        .eq('id', id);
+      if (error) throw error;
+      setEditModal(false);
+      setShowSaved(true);
+      load();
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'Could not save changes.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (loading) {
     return (
       <View style={s.loadingWrap}>
@@ -140,7 +179,7 @@ export default function ChildProfileScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={s.editBtn}>
+        <TouchableOpacity style={s.editBtn} onPress={openEdit}>
           <Ionicons name="create-outline" size={16} color="rgba(255,255,255,0.85)" />
           <Text style={s.editBtnText}>Edit</Text>
         </TouchableOpacity>
@@ -228,9 +267,12 @@ export default function ChildProfileScreen() {
         {/* ── Quick Actions ────────────────────────────────── */}
         <View style={s.actions}>
           <ActionBtn
-            icon="book-outline"
+            icon="book"
             label="View Journal"
             onPress={() => router.push({ pathname: '/journal', params: { patientId: child.id, patientName: child.full_name } })}
+            bg="#f59e0b"
+            iconColor="#fff"
+            textColor="#fff"
           />
           <ActionBtn
             icon="bar-chart-outline"
@@ -311,6 +353,76 @@ export default function ChildProfileScreen() {
           onClose={() => setSelected(null)}
         />
       )}
+
+      {/* ── Edit Modal ──────────────────────────────────────── */}
+      <Modal visible={editModal} transparent animationType="slide" onRequestClose={() => setEditModal(false)}>
+        <KeyboardAvoidingView style={e.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={e.sheet}>
+            <View style={e.handle} />
+            <Text style={e.title}>Edit Child Profile</Text>
+
+            <Text style={e.fieldLabel}>FULL NAME</Text>
+            <TextInput
+              style={e.input} value={editName} onChangeText={setEditName}
+              placeholder="Child's full name" placeholderTextColor={C.textMuted}
+              autoCapitalize="words"
+            />
+
+            <Text style={[e.fieldLabel, { marginTop: 14 }]}>AGE</Text>
+            <TextInput
+              style={e.input} value={editAge}
+              onChangeText={t => setEditAge(t.replace(/[^0-9]/g, ''))}
+              placeholder="Age" placeholderTextColor={C.textMuted}
+              keyboardType="number-pad" maxLength={2}
+            />
+
+            <Text style={[e.fieldLabel, { marginTop: 14 }]}>GENDER</Text>
+            <View style={e.genderRow}>
+              {(['Male', 'Female', 'Other'] as const).map(g => (
+                <TouchableOpacity
+                  key={g}
+                  style={[e.genderPill, editGender === g && e.genderPillActive]}
+                  onPress={() => setEditGender(g)}
+                >
+                  <Text style={[e.genderPillText, editGender === g && e.genderPillTextActive]}>{g}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={[e.fieldLabel, { marginTop: 14 }]}>PERSONALITY NOTES</Text>
+            <TextInput
+              style={[e.input, e.textArea]} value={editNotes} onChangeText={setEditNotes}
+              placeholder="Brief behaviour or therapy notes…" placeholderTextColor={C.textMuted}
+              multiline numberOfLines={3} textAlignVertical="top"
+            />
+
+            <View style={e.actions}>
+              <TouchableOpacity style={e.cancelBtn} onPress={() => setEditModal(false)}>
+                <Text style={e.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[e.saveBtn, saving && { opacity: 0.7 }]} onPress={handleSave} disabled={saving}>
+                {saving
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={e.saveBtnText}>Save Changes</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Saved Success Modal ─────────────────────────────── */}
+      <Modal visible={showSaved} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setShowSaved(false)}>
+        <View style={e.successBackdrop}>
+          <View style={e.successCard}>
+            <Ionicons name="checkmark-circle" size={60} color="#22c55e" />
+            <Text style={e.successTitle}>Saved!</Text>
+            <Text style={e.successSub}>Child profile has been updated.</Text>
+            <TouchableOpacity style={e.successBtn} onPress={() => setShowSaved(false)} activeOpacity={0.85}>
+              <Text style={e.successBtnText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -468,28 +580,27 @@ const drawStyles = StyleSheet.create({
 });
 
 function ActionBtn({
-  icon, label, onPress, primary,
-}: { icon: string; label: string; onPress: () => void; primary?: boolean }) {
+  icon, label, onPress, primary, bg, iconColor, textColor,
+}: { icon: string; label: string; onPress: () => void; primary?: boolean; bg?: string; iconColor?: string; textColor?: string }) {
+  const bgStyle = bg ? { backgroundColor: bg } : primary ? actionStyles.btnPrimary : actionStyles.btnSecondary;
+  const ic = iconColor ?? (primary ? C.white : NAVY);
+  const tc = textColor ?? (primary ? C.white : NAVY);
   return (
     <TouchableOpacity
-      style={[actionStyles.btn, primary ? actionStyles.btnPrimary : actionStyles.btnSecondary]}
+      style={[actionStyles.btn, bgStyle, SHADOW.sm]}
       onPress={onPress}
       activeOpacity={0.8}
     >
-      <Ionicons name={icon as any} size={16} color={primary ? C.white : NAVY} />
-      <Text style={[actionStyles.label, primary ? actionStyles.labelPrimary : actionStyles.labelSecondary]}>
-        {label}
-      </Text>
+      <Ionicons name={icon as any} size={16} color={ic} />
+      <Text style={[actionStyles.label, { color: tc }]}>{label}</Text>
     </TouchableOpacity>
   );
 }
 const actionStyles = StyleSheet.create({
-  btn:            { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 13, borderRadius: 12 },
-  btnPrimary:     { backgroundColor: NAVY, ...SHADOW.sm },
-  btnSecondary:   { backgroundColor: C.white, borderWidth: 1.5, borderColor: C.border },
-  label:          { fontSize: 14, fontWeight: '700' },
-  labelPrimary:   { color: C.white },
-  labelSecondary: { color: NAVY },
+  btn:          { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 13, borderRadius: 12 },
+  btnPrimary:   { backgroundColor: NAVY, ...SHADOW.sm },
+  btnSecondary: { backgroundColor: C.white, borderWidth: 1.5, borderColor: C.border },
+  label:        { fontSize: 14, fontWeight: '700' },
 });
 
 // ── Tracking Stepper ─────────────────────────────────────────────────────────
@@ -810,4 +921,39 @@ const s = StyleSheet.create({
     marginBottom: 20, borderWidth: 1, borderColor: C.border,
   },
   showMoreText: { fontSize: 13, fontWeight: '700', color: NAVY },
+});
+
+// ── Edit modal styles ─────────────────────────────────────────────────────────
+const e = StyleSheet.create({
+  backdrop:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet:     { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 22, paddingBottom: 40, gap: 4 },
+  handle:    { width: 34, height: 4, borderRadius: 2, backgroundColor: '#E0E0E8', alignSelf: 'center', marginBottom: 14 },
+  title:     { fontSize: 18, fontWeight: '800', color: NAVY, marginBottom: 10 },
+
+  fieldLabel: { fontSize: 10, fontWeight: '700', color: C.textMuted, letterSpacing: 0.8, marginBottom: 6 },
+  input: {
+    borderWidth: 1.5, borderColor: '#E8E8F0', borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 11,
+    fontSize: 14, color: NAVY, backgroundColor: '#FAFAFA',
+  },
+  textArea: { height: 80, textAlignVertical: 'top' },
+
+  genderRow:           { flexDirection: 'row', gap: 8, marginTop: 2 },
+  genderPill:          { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', borderWidth: 1.5, borderColor: '#E8E8F0', backgroundColor: '#FAFAFA' },
+  genderPillActive:    { backgroundColor: NAVY, borderColor: NAVY },
+  genderPillText:      { fontSize: 13, fontWeight: '600', color: C.textMuted },
+  genderPillTextActive:{ color: '#fff' },
+
+  actions:        { flexDirection: 'row', gap: 10, marginTop: 20 },
+  cancelBtn:      { flex: 1, paddingVertical: 13, borderRadius: 11, backgroundColor: '#F4F5FA', borderWidth: 1, borderColor: '#E8E8F0', alignItems: 'center' },
+  cancelBtnText:  { fontSize: 14, fontWeight: '600', color: C.textMuted },
+  saveBtn:        { flex: 2, paddingVertical: 13, borderRadius: 11, backgroundColor: NAVY, alignItems: 'center' },
+  saveBtnText:    { fontSize: 14, fontWeight: '700', color: '#fff' },
+
+  successBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center', padding: 40 },
+  successCard:     { backgroundColor: '#fff', borderRadius: 28, padding: 32, width: '100%', alignItems: 'center', gap: 8 },
+  successTitle:    { fontSize: 28, fontWeight: '900', color: NAVY },
+  successSub:      { fontSize: 14, color: C.textMuted, textAlign: 'center' },
+  successBtn:      { marginTop: 12, width: '100%', paddingVertical: 14, borderRadius: 14, backgroundColor: NAVY, alignItems: 'center' },
+  successBtnText:  { fontSize: 15, fontWeight: '700', color: '#fff' },
 });

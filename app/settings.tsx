@@ -9,12 +9,10 @@ import { supabase } from '../lib/supabaseClient';
 import { useApp } from '../contexts/AppContext';
 import { C, EMOTION_COLORS, SHADOW } from '../constants/theme';
 import { ParentShell } from '../components/ParentShell';
-import { Patient } from '../types';
 
 const NAVY = '#1A1F3C';
 const BG   = '#F2F2F7';
 
-const EMOTION_LIST = ['happy', 'sad', 'angry', 'anxious'] as const;
 
 interface SettingRow {
   icon: string;
@@ -26,64 +24,22 @@ interface SettingRow {
 }
 
 export default function ProfileScreen() {
-  const { profile, signOut } = useApp();
+  const { profile, signOut, children, lastEmotions, therapistNames, childrenLoading, refreshChildren } = useApp();
   const router = useRouter();
 
-  const [email, setEmail]               = useState('');
-  const [children, setChildren]         = useState<Patient[]>([]);
-  const [lastEmotions, setLastEmotions] = useState<Record<string, string>>({});
-  const [therapistNames, setTherapistNames] = useState<Record<string, string>>({});
-  const [loading, setLoading]           = useState(true);
-  const [refreshing, setRefreshing]     = useState(false);
+  const [email, setEmail]           = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setEmail(user.email ?? '');
+    });
+  }, []);
 
-  async function load() {
-    setLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.replace('/login'); return; }
-
-      setEmail(user.email ?? '');
-
-      const { data: childData } = await supabase
-        .from('patients')
-        .select('*')
-        .eq('guardian_id', user.id)
-        .order('full_name');
-
-      if (!childData?.length) { setChildren([]); return; }
-      setChildren(childData);
-
-      // Fetch last emotion per child
-      const ids = childData.map(c => c.id);
-      const { data: sketches } = await supabase
-        .from('sketches')
-        .select('patient_id, emotion')
-        .in('patient_id', ids)
-        .order('created_at', { ascending: false });
-
-      if (sketches) {
-        const map: Record<string, string> = {};
-        sketches.forEach(s => { if (!map[s.patient_id]) map[s.patient_id] = s.emotion; });
-        setLastEmotions(map);
-      }
-
-      // Fetch therapist names
-      const therapistIds = [...new Set(childData.map(c => c.therapist_id).filter((id): id is string => !!id))];
-      if (therapistIds.length) {
-        const { data: profiles } = await supabase
-          .from('profiles').select('id, full_name').in('id', therapistIds);
-        if (profiles) {
-          const m: Record<string, string> = {};
-          profiles.forEach(p => { m[p.id] = p.full_name; });
-          setTherapistNames(m);
-        }
-      }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  async function handleRefresh() {
+    setRefreshing(true);
+    await refreshChildren();
+    setRefreshing(false);
   }
 
   async function handleSignOut() {
@@ -96,14 +52,12 @@ export default function ProfileScreen() {
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Parent';
 
   const accountRows: SettingRow[] = [
-    { icon: 'person-outline',       label: 'Edit Profile',     sub: 'Update your name and details', chevron: true },
-    { icon: 'notifications-outline', label: 'Notifications',   sub: 'Manage alert preferences',     chevron: true },
-    { icon: 'shield-checkmark-outline', label: 'Security',    sub: 'Password and account security', chevron: true, onPress: () => router.push('/change-password' as any) },
-    { icon: 'help-circle-outline',  label: 'Help & Support',   sub: 'FAQs and contact info',        chevron: true },
+    { icon: 'person-outline',         label: 'Edit Profile', sub: 'Update your name and details', chevron: true, onPress: () => router.push('/edit-profile' as any) },
+    { icon: 'shield-checkmark-outline', label: 'Security',  sub: 'Password and account security', chevron: true, onPress: () => router.push('/change-password' as any) },
   ];
 
   const appRows: SettingRow[] = [
-    { icon: 'information-circle-outline', label: 'About EmotiSketch', sub: 'Version 1.0.0',     chevron: true },
+    { icon: 'information-circle-outline', label: 'About EmotiSketch', sub: 'Version 1.0.0',    chevron: true, onPress: () => router.push('/about' as any) },
     { icon: 'code-slash-outline',         label: 'AI Model',          sub: 'Claude Haiku 4.5', chevron: true },
   ];
 
@@ -129,7 +83,7 @@ export default function ProfileScreen() {
           contentContainerStyle={s.content}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={NAVY} />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={NAVY} />
           }
         >
           {/* ── My Children ───────────────────────────────── */}
@@ -142,7 +96,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            {loading ? (
+            {childrenLoading ? (
               <ActivityIndicator color={NAVY} style={{ marginVertical: 20 }} />
             ) : children.length === 0 ? (
               <View style={s.emptyChildren}>

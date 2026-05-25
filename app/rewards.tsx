@@ -15,7 +15,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../lib/supabaseClient";
 import { useApp } from "../contexts/AppContext";
-import { Patient, Sketch } from "../types";
+import { Sketch } from "../types";
 import { C, SHADOW } from "../constants/theme";
 import { ParentShell } from "../components/ParentShell";
 import {
@@ -574,16 +574,14 @@ function LockedBadgeCard({
 // ── Main Screen ────────────────────────────────────────────────────────────────
 
 export default function RewardsScreen() {
-  const { profile } = useApp();
+  const { profile, children, childrenLoading } = useApp();
   const router = useRouter();
 
-  const [children, setChildren] = useState<Patient[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [sketches, setSketches] = useState<Sketch[]>([]);
   const [cookies, setCookies] = useState(0);
   const [fedCount, setFedCount] = useState(0);
   const [seenIds, setSeenIds] = useState<string[]>([]);
-  const [childrenLoading, setChildrenLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(false);
   const [celebration, setCelebration] = useState<BadgeDef | null>(null);
   const [showDex, setShowDex] = useState(false);
@@ -624,23 +622,12 @@ export default function RewardsScreen() {
     setCongratsType(type);
   }
 
-  // Fetch children on mount
+  // Auto-select first child when context children load
   useEffect(() => {
-    (async () => {
-      if (!profile?.id) return;
-      const { data } = await supabase
-        .from("patients")
-        .select(
-          "id, full_name, age, gender, total_sketches, status, guardian_id, therapist_id",
-        )
-        .eq("guardian_id", profile.id)
-        .order("full_name");
-      const kids = (data ?? []) as Patient[];
-      setChildren(kids);
-      if (kids.length > 0) setSelectedChildId(kids[0].id);
-      setChildrenLoading(false);
-    })();
-  }, [profile?.id]);
+    if (children.length > 0 && !selectedChildId) {
+      setSelectedChildId(children[0].id);
+    }
+  }, [children]);
 
   // Load sketches + badges + cookie/fed data when child changes
   const loadChildData = useCallback(async (childId: string) => {

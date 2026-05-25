@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
-import { supabase } from '../lib/supabaseClient';
+import { useApp } from '../contexts/AppContext';
 import { UploadBottomSheet, SheetPatient } from './UploadBottomSheet';
 
 const NAVY        = '#1A1F3C';
@@ -23,22 +23,10 @@ const TABS: { icon: IoniconName; activeIcon: IoniconName; path: string; center?:
 export function ParentNav() {
   const router   = useRouter();
   const pathname = usePathname();
+  const { children } = useApp();
 
-  const [patients, setPatients]     = useState<SheetPatient[]>([]);
-  const [sheetOpen, setSheetOpen]   = useState(false);
-
-  // Fetch children once on mount
-  useEffect(() => {
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase
-        .from('patients')
-        .select('id, full_name, age, gender')
-        .eq('guardian_id', user.id);
-      setPatients(data ?? []);
-    })();
-  }, []);
+  const patients: SheetPatient[] = children;
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   // Navigate to the draw screen for a given child
   function goToDraw(patient: SheetPatient) {

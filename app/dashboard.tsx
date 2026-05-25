@@ -24,7 +24,7 @@ function formatTime(iso: string) {
 
 
 export default function Dashboard() {
-  const { profile, signOut } = useApp();
+  const { profile, signOut, children, lastEmotions: ctxLastEmotions, therapistNames: ctxTherapistNames, refreshChildren } = useApp();
   const router = useRouter();
   const [showNotif, setShowNotif] = useState(false);
   const {
@@ -34,11 +34,10 @@ export default function Dashboard() {
 
   const pendingSessionCount = notifications.filter(n => n.type === 'schedule' && !n.read).length;
 
-  const [children, setChildren]           = useState<Patient[]>([]);
-  const [lastEmotions, setLastEmotions]   = useState<Record<string, string>>({});
+  const [lastEmotions, setLastEmotions]   = useState<Record<string, string>>(ctxLastEmotions);
   const [negativeStreaks, setNegativeStreaks] = useState<Record<string, boolean>>({});
-  const [therapistNames, setTherapistNames] = useState<Record<string, string>>({});
-  const [loading, setLoading]             = useState(true);
+  const [therapistNames, setTherapistNames] = useState<Record<string, string>>(ctxTherapistNames);
+  const [loading, setLoading]             = useState(false);
   const [refreshing, setRefreshing]       = useState(false);
   const [searchQuery, setSearchQuery]     = useState('');
   const [recentActivity, setRecentActivity] = useState<{ childName: string; emotion: string; created_at: string }[]>([]);
@@ -56,37 +55,18 @@ export default function Dashboard() {
   const [addedChildName, setAddedChildName] = useState('');
 
   useEffect(() => {
-    fetchChildren();
-  }, []);
+    if (children.length > 0) fetchSketchAnalytics(children);
+  }, [children]);
 
-  async function fetchChildren() {
+  async function fetchSketchAnalytics(patients: Patient[]) {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.replace('/login'); return; }
-      const { data, error } = await supabase
-        .from('patients').select('*').eq('guardian_id', user.id).order('full_name');
-      if (error) throw error;
-      setChildren(data ?? []);
-      if (data && data.length > 0) {
-        await Promise.all([fetchLastEmotions(data), fetchTherapists(data)]);
-      }
+      await fetchLastEmotions(patients);
     } catch (e: any) {
       Alert.alert('Error', e.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
-    }
-  }
-
-  async function fetchTherapists(patients: Patient[]) {
-    const ids = patients.map(p => p.therapist_id).filter((id): id is string => !!id);
-    if (!ids.length) return;
-    const { data } = await supabase.from('profiles').select('id, full_name').in('id', ids);
-    if (data) {
-      const map: Record<string, string> = {};
-      data.forEach(p => { map[p.id] = p.full_name; });
-      setTherapistNames(map);
     }
   }
 
@@ -189,7 +169,7 @@ export default function Dashboard() {
       setAddModal(false);
       setAddedChildName(childName.trim());
       setShowAddSuccess(true);
-      fetchChildren();
+      refreshChildren();
     } catch (e: any) {
       Alert.alert('Error', e.message);
     } finally {
@@ -332,7 +312,7 @@ export default function Dashboard() {
         style={s.scroll}
         contentContainerStyle={s.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchChildren(); }} tintColor={NAVY} />
+          <RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await Promise.all([refreshChildren(), fetchSketchAnalytics(children)]); setRefreshing(false); }} tintColor={NAVY} />
         }
       >
         {/* Greeting card */}
