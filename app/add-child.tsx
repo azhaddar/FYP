@@ -7,6 +7,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabaseClient';
+import { logActivity } from '../lib/activityLog';
 
 const NAVY = '#1A1F3C';
 const PINK = '#e13d7d';
@@ -57,6 +58,8 @@ export default function AddChildScreen() {
       }]);
 
       if (error) throw error;
+
+      logActivity({ action: 'patient.created', entity_type: 'patient', entity_label: fullName.trim() });
 
       setAddedName(fullName.trim());
       setShowSuccess(true);

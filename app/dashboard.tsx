@@ -14,6 +14,7 @@ import { ParentShell } from '../components/ParentShell';
 import { EmotionIcon } from '../components/EmotionIcon';
 import { NotificationPanel } from '../components/NotificationPanel';
 import { useNotifications } from '../hooks/useNotifications';
+import { logActivity } from '../lib/activityLog';
 
 const NAVY   = '#1A1F3C';
 const YELLOW = '#FFD93D';
@@ -166,6 +167,7 @@ export default function Dashboard() {
         guardian_id: user.id, status: 'Active',
       });
       if (error) throw error;
+      logActivity({ action: 'patient.created', entity_type: 'patient', entity_label: childName.trim() });
       setAddModal(false);
       setAddedChildName(childName.trim());
       setShowAddSuccess(true);

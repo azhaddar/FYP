@@ -7,6 +7,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabaseClient';
+import { logActivity } from '../../lib/activityLog';
 import { C, EMOTION_COLORS, SHADOW } from '../../constants/theme';
 import { EmotionIcon } from '../../components/EmotionIcon';
 import { Patient, Sketch } from '../../types';
@@ -124,6 +125,7 @@ export default function ChildProfileScreen() {
         .update({ full_name: editName.trim(), age, gender: editGender, personality: editNotes.trim() })
         .eq('id', id);
       if (error) throw error;
+      logActivity({ action: 'patient.updated', entity_type: 'patient', entity_id: id as string, entity_label: editName.trim() });
       setEditModal(false);
       setShowSaved(true);
       load();

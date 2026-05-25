@@ -15,6 +15,7 @@ import { decode } from "base64-arraybuffer";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { supabase } from "../lib/supabaseClient";
+import { logActivity } from "../lib/activityLog";
 import { SHADOW } from "../constants/theme";
 
 const NAVY = "#1A1F3C";
@@ -191,6 +192,13 @@ export default function UploadScreen() {
         therapist_message: analyzeResult.data?.therapistMessage ?? null,
         htp_features: analyzeResult.data?.htpFeatures ?? null,
         pre_mood: preMood || null,
+      });
+
+      logActivity({
+        action: 'sketch.submitted',
+        entity_type: 'sketch',
+        entity_label: `${emotion} sketch — ${patientName}`,
+        meta: { patient_id: patientId, emotion, patient_name: patientName },
       });
 
       // Award 1 cookie for completing a drawing
